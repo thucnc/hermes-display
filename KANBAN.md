@@ -4,6 +4,11 @@ Last Updated: 2026-10-01 14:45
 
 ## Backlog
 
+- [ ] **KB-003**: Cấu hình OTA Auto-Update Service kết nối GitHub Releases
+  - Priority: High
+  - Assignee: claude-code (opus-5-5)
+  - Tags: #ota #auto-update
+
 - [ ] **KB-004**: Tích hợp `sherpa_onnx` Zipformer STT Tiếng Việt streaming on-device
   - Priority: High
   - Assignee: claude-code (opus-5-5)
@@ -19,19 +24,14 @@ Last Updated: 2026-10-01 14:45
   - Assignee: claude-code (opus-5-5)
   - Tags: #slideshow
 
-## To Do
-
-- [ ] **KB-002**: Wake Word Porcupine / Sherpa KWS với từ khóa "Hey Sen"
-  - Priority: High
-  - Assignee: claude-code (opus-5-5)
-  - Tags: #wakeword #hey-sen
-
-- [ ] **KB-003**: Cấu hình OTA Auto-Update Service kết nối GitHub Releases
-  - Priority: High
-  - Assignee: claude-code (opus-5-5)
-  - Tags: #ota #auto-update
-
 ## In Progress
+
+- [ ] **KB-002**: Wake Word Porcupine / Sherpa KWS với từ khóa "Hey Sen" & Offline Vietnamese Voice Engine
+  - Priority: High
+  - Assignee: claude-code (opus-5-5)
+  - Started: 2026-10-01 15:15
+  - Criteria: Keyword spotting "Hey Sen", audio recording / stream capture, audio cue feedback, transition to LISTENING state, integration with sherpa_onnx / audio pipeline.
+  - Tags: #wakeword #hey-sen #voice
 
 ## Review
 
