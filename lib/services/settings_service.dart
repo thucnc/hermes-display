@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants/app_constants.dart';
+import '../core/dimming/dim_schedule.dart';
 import 'audio/wake_detector.dart';
 
 class HubSettings {
@@ -11,6 +12,7 @@ class HubSettings {
     required this.wakeSensitivity,
     required this.wakeKeyword,
     required this.alwaysListening,
+    this.dim = DimSettings.defaults,
   });
 
   static const HubSettings defaults = HubSettings(
@@ -20,6 +22,7 @@ class HubSettings {
     wakeSensitivity: HubDefaults.wakeSensitivity,
     wakeKeyword: HubDefaults.wakeKeyword,
     alwaysListening: HubDefaults.alwaysListening,
+    dim: DimSettings.defaults,
   );
 
   final String host;
@@ -30,6 +33,9 @@ class HubSettings {
 
   /// Keep the wake word running behind a microphone foreground service.
   final bool alwaysListening;
+
+  /// Night dimming window for the app's screen.
+  final DimSettings dim;
 
   Uri get wsUri => Uri(scheme: HubDefaults.scheme, host: host, port: port);
 
@@ -50,6 +56,7 @@ class HubSettings {
     double? wakeSensitivity,
     String? wakeKeyword,
     bool? alwaysListening,
+    DimSettings? dim,
   }) {
     return HubSettings(
       host: host ?? this.host,
@@ -58,6 +65,7 @@ class HubSettings {
       wakeSensitivity: wakeSensitivity ?? this.wakeSensitivity,
       wakeKeyword: wakeKeyword ?? this.wakeKeyword,
       alwaysListening: alwaysListening ?? this.alwaysListening,
+      dim: dim ?? this.dim,
     );
   }
 
@@ -79,6 +87,7 @@ class HubSettings {
       ),
       wakeKeyword: keyword.isEmpty ? HubDefaults.wakeKeyword : keyword,
       alwaysListening: alwaysListening,
+      dim: dim.normalized(),
     );
   }
 }
@@ -90,6 +99,10 @@ abstract final class _PrefKey {
   static const String wakeSensitivity = 'wake_sensitivity';
   static const String wakeKeyword = 'wake_keyword';
   static const String alwaysListening = 'always_listening';
+  static const String dimEnabled = 'dim_enabled';
+  static const String dimStart = 'dim_start_hour';
+  static const String dimEnd = 'dim_end_hour';
+  static const String dimLevel = 'dim_level';
 }
 
 class SettingsService {
@@ -115,7 +128,17 @@ class SettingsService {
           _prefs.getString(_PrefKey.wakeKeyword) ?? fallback.wakeKeyword,
       alwaysListening:
           _prefs.getBool(_PrefKey.alwaysListening) ?? fallback.alwaysListening,
+      dim: _loadDim(fallback.dim),
     ).normalized();
+  }
+
+  DimSettings _loadDim(DimSettings fallback) {
+    return DimSettings(
+      enabled: _prefs.getBool(_PrefKey.dimEnabled) ?? fallback.enabled,
+      startHour: _prefs.getInt(_PrefKey.dimStart) ?? fallback.startHour,
+      endHour: _prefs.getInt(_PrefKey.dimEnd) ?? fallback.endHour,
+      level: _prefs.getDouble(_PrefKey.dimLevel) ?? fallback.level,
+    );
   }
 
   Future<void> save(HubSettings settings) async {
@@ -127,6 +150,10 @@ class SettingsService {
       _prefs.setDouble(_PrefKey.wakeSensitivity, value.wakeSensitivity),
       _prefs.setString(_PrefKey.wakeKeyword, value.wakeKeyword),
       _prefs.setBool(_PrefKey.alwaysListening, value.alwaysListening),
+      _prefs.setBool(_PrefKey.dimEnabled, value.dim.enabled),
+      _prefs.setInt(_PrefKey.dimStart, value.dim.startHour),
+      _prefs.setInt(_PrefKey.dimEnd, value.dim.endHour),
+      _prefs.setDouble(_PrefKey.dimLevel, value.dim.level),
     ]);
   }
 }

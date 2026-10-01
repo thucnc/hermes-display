@@ -28,6 +28,17 @@ Last Updated: 2026-10-01 14:45
 
 ## Review
 
+- [ ] **KB-007**: Giảm sáng ban đêm & bật màn hình khi gọi "Hey Sen"
+  - Priority: Medium
+  - Assignee: claude-code (opus-5-5)
+  - Completed: 2026-10-01
+  - Tests: 126/126 (95 cũ + 31 mới), 0 analyze issues, debug APK builds.
+  - Emulator API 34: window brightness override 0.05 trong khung giờ,
+    NaN ngoài khung giờ / sau khi chạm.
+  - Unverified: wake screen trên lock screen (emulator & MatePad thật),
+    giảm sáng trên HarmonyOS.
+  - Tags: #display #dimming #wakeword
+
 - [ ] **KB-002**: Wake Word Sherpa KWS "Hey Sen" & voice capture pipeline
   - Priority: High
   - Assignee: claude-code (opus-5-5)

@@ -10,8 +10,28 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private val screen by lazy { ScreenController(this) }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SCREEN_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    METHOD_BRIGHTNESS -> {
+                        screen.setBrightness(call.argument<Double>(ARG_LEVEL))
+                        result.success(null)
+                    }
+                    METHOD_WAKE -> {
+                        screen.wake()
+                        result.success(null)
+                    }
+                    METHOD_RELEASE -> {
+                        screen.release()
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -59,5 +79,10 @@ class MainActivity : FlutterActivity() {
         private const val CHANNEL = "hermes_display/mic_service"
         private const val METHOD_START = "start"
         private const val METHOD_STOP = "stop"
+        private const val SCREEN_CHANNEL = "hermes_display/screen"
+        private const val METHOD_BRIGHTNESS = "setBrightness"
+        private const val METHOD_WAKE = "wakeScreen"
+        private const val METHOD_RELEASE = "releaseScreen"
+        private const val ARG_LEVEL = "level"
     }
 }

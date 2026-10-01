@@ -68,4 +68,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.settings.alwaysListening, isFalse);
   });
+
+  testWidgets('night dimming: on by default, edits persist', (tester) async {
+    await open(tester);
+    final toggle = tester.widget<SwitchListTile>(
+      find.widgetWithText(SwitchListTile, AppStrings.nightDim),
+    );
+    expect(toggle.value, isTrue);
+
+    final start = find.widgetWithText(
+      DropdownButtonFormField<int>,
+      AppStrings.dimStart,
+    );
+    await tester.ensureVisible(start);
+    await tester.tap(start);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('22:00').last);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text(AppStrings.nightDim));
+    await tester.tap(find.text(AppStrings.nightDim));
+    await tester.pump();
+    await tester.ensureVisible(find.text(AppStrings.save));
+    await tester.tap(find.text(AppStrings.save));
+    await tester.pumpAndSettle();
+    expect(controller.settings.dim.startHour, 22);
+    expect(controller.settings.dim.enabled, isFalse);
+  });
 }

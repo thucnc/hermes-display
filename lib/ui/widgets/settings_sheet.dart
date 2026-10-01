@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/app_constants.dart';
+import '../../core/dimming/dim_schedule.dart';
 import '../../core/state/display_controller.dart';
 import '../../services/audio/wake_model_installer.dart';
 import '../../services/settings_service.dart';
@@ -39,6 +40,11 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   static const double _titleSize = 22;
   static const int _sensitivityDivisions = 10;
   static const int _percentScale = 100;
+  static const int _hourDigits = 2;
+
+  /// One slider step per percent.
+  static final int _dimDivisions =
+      ((DimLimits.maxLevel - DimLimits.minLevel) * _percentScale).round();
 
   final GlobalKey<FormState> _form = GlobalKey<FormState>();
   late final HubSettings _initial = widget.controller.settings;
@@ -54,6 +60,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   late double _slideSec = _initial.slideIntervalSec.toDouble();
   late double _sensitivity = _initial.wakeSensitivity;
   late bool _alwaysListening = _initial.alwaysListening;
+  late DimSettings _dim = _initial.dim;
   _ProbeState _probe = _ProbeState.idle;
 
   @override
@@ -75,6 +82,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
       wakeSensitivity: _sensitivity,
       wakeKeyword: _keyword.text,
       alwaysListening: _alwaysListening,
+      dim: _dim,
     );
   }
 
@@ -198,6 +206,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                 value: _alwaysListening,
                 onChanged: (v) => setState(() => _alwaysListening = v),
               ),
+              ..._dimSection(),
               _modelRow(),
               const SizedBox(height: Spacing.lg),
               Row(
@@ -219,6 +228,79 @@ class _SettingsSheetState extends State<_SettingsSheet> {
         ),
       ),
     );
+  }
+
+  List<Widget> _dimSection() {
+    return [
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        title: const Text(AppStrings.nightDim),
+        subtitle: const Text(AppStrings.nightDimHint),
+        value: _dim.enabled,
+        onChanged: (v) => setState(() => _dim = _dim.copyWith(enabled: v)),
+      ),
+      if (_dim.enabled) ...[
+        Row(
+          children: [
+            Expanded(
+              child: _hourField(
+                label: AppStrings.dimStart,
+                value: _dim.startHour,
+                onChanged: (h) => _dim = _dim.copyWith(startHour: h),
+              ),
+            ),
+            const SizedBox(width: Spacing.md),
+            Expanded(
+              child: _hourField(
+                label: AppStrings.dimEnd,
+                value: _dim.endHour,
+                onChanged: (h) => _dim = _dim.copyWith(endHour: h),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: Spacing.md),
+        _sliderTile(
+          label: AppStrings.dimLevel,
+          valueLabel: '${(_dim.level * _percentScale).round()}%',
+          slider: Slider(
+            value: _dim.level,
+            min: DimLimits.minLevel,
+            max: DimLimits.maxLevel,
+            divisions: _dimDivisions,
+            onChanged: (v) => setState(() => _dim = _dim.copyWith(level: v)),
+          ),
+        ),
+      ],
+    ];
+  }
+
+  Widget _hourField({
+    required String label,
+    required int value,
+    required ValueChanged<int> onChanged,
+  }) {
+    return DropdownButtonFormField<int>(
+      initialValue: value,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
+      items: [
+        for (var hour = DimLimits.minHour; hour <= DimLimits.maxHour; hour++)
+          DropdownMenuItem(value: hour, child: Text(_hourLabel(hour))),
+      ],
+      onChanged: (hour) {
+        if (hour == null) {
+          return;
+        }
+        setState(() => onChanged(hour));
+      },
+    );
+  }
+
+  static String _hourLabel(int hour) {
+    return '${hour.toString().padLeft(_hourDigits, '0')}:00';
   }
 
   Widget _addressRow() {

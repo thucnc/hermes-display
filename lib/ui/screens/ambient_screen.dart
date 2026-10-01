@@ -26,12 +26,19 @@ class AmbientScreen extends StatelessWidget {
   static const double _clockPortrait = 0.28;
   static const double _dimmedOpacity = 0.35;
 
+  /// Slideshow/clock opacity inside the night dim window.
+  static const double nightOpacity = 0.7;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: ListenableBuilder(
-        listenable: controller,
-        builder: (context, _) => _layers(context),
+      body: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) => controller.touch(),
+        child: ListenableBuilder(
+          listenable: Listenable.merge([controller, controller.nightDimmed]),
+          builder: (context, _) => _layers(context),
+        ),
       ),
     );
   }
@@ -40,6 +47,7 @@ class AmbientScreen extends StatelessWidget {
     final state = controller.state;
     final active = state != DisplayState.idle;
     final settings = controller.settings;
+    final night = controller.nightDimmed.value ? nightOpacity : 1.0;
     return LayoutBuilder(
       builder: (context, box) {
         final landscape = box.maxWidth > box.maxHeight;
@@ -48,7 +56,14 @@ class AmbientScreen extends StatelessWidget {
         return Stack(
           fit: StackFit.expand,
           children: [
-            PhotoSlideshow(interval: settings.slideInterval, photos: photos),
+            AnimatedOpacity(
+              duration: Motion.overlay,
+              opacity: night,
+              child: PhotoSlideshow(
+                interval: settings.slideInterval,
+                photos: photos,
+              ),
+            ),
             LegibilityScrim(
               level: active ? ScrimLevel.focused : ScrimLevel.ambient,
             ),
@@ -77,7 +92,7 @@ class AmbientScreen extends StatelessWidget {
                     alignment: Alignment.bottomLeft,
                     child: AnimatedOpacity(
                       duration: Motion.overlay,
-                      opacity: active ? _dimmedOpacity : 1,
+                      opacity: active ? _dimmedOpacity : night,
                       child: AmbientClock(timeSize: clockSize),
                     ),
                   ),

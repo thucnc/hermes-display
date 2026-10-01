@@ -75,3 +75,27 @@ abstract final class WakeTuning {
   static const int minTrailingBlanks = 1;
   static const int maxTrailingBlanks = 5;
 }
+
+/// Night dimming defaults: on, 23:00 to 06:00 local, 5% backlight.
+abstract final class DimDefaults {
+  static const bool enabled = true;
+  static const int startHour = 23;
+  static const int endHour = 6;
+  static const double level = 0.05;
+}
+
+abstract final class DimLimits {
+  static const int minHour = 0;
+  static const int maxHour = 23;
+
+  /// 0 turns the backlight fully off on some panels.
+  static const double minLevel = 0.01;
+  static const double maxLevel = 0.5;
+}
+
+abstract final class DimTiming {
+  static const Duration tick = Duration(minutes: 1);
+
+  /// How long a touch keeps a dimmed screen at full brightness.
+  static const Duration touchHold = Duration(seconds: 30);
+}

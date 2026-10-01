@@ -6,7 +6,9 @@ import '../../services/audio/keyword_tokens.dart' as tokens;
 import '../../services/audio/mic_keep_alive.dart';
 import '../../services/audio/wake_model_installer.dart';
 import '../../services/hermes_websocket_client.dart';
+import '../../services/night_dimmer.dart';
 import '../../services/protocol/hermes_message.dart';
+import '../../services/screen/screen_control.dart';
 import '../../services/settings_service.dart';
 import '../../services/wake_word_service.dart';
 import '../constants/app_constants.dart';
@@ -26,11 +28,15 @@ class DisplayController extends ChangeNotifier {
     WakeWordService? voice,
     MicKeepAlive? keepAlive,
     WakeModelInstaller? installer,
+    ScreenControl? screen,
+    NightDimmer? dimmer,
   }) : _settingsService = settingsService,
        _client = client,
        _voice = voice,
        _keepAlive = keepAlive,
        _installer = installer,
+       _screen = screen,
+       _dimmer = dimmer,
        _settings = settingsService.load();
 
   final SettingsService _settingsService;
@@ -45,6 +51,13 @@ class DisplayController extends ChangeNotifier {
 
   /// Null: no download; the model must already be on disk.
   final WakeModelInstaller? _installer;
+
+  /// Null: wake word never lights the screen or shows over the lock.
+  final ScreenControl? _screen;
+
+  /// Null: no night dimming.
+  final NightDimmer? _dimmer;
+  static final ValueNotifier<bool> _neverDimmed = ValueNotifier<bool>(false);
   final List<StreamSubscription<Object?>> _subscriptions = [];
   final ValueNotifier<double> _level = ValueNotifier<double>(0);
   Timer? _watchdog;
@@ -57,6 +70,8 @@ class DisplayController extends ChangeNotifier {
   String? _lastError;
   VoiceStatus? _voiceStatus;
   bool _starting = false;
+  bool _screenWoken = false;
+  ScreenResult? _screenResult;
   bool _disposed = false;
 
   HubSettings get settings => _settings;
@@ -66,6 +81,15 @@ class DisplayController extends ChangeNotifier {
   String get reply => _reply;
   String? get lastError => _lastError;
   VoiceStatus? get voiceStatus => _voiceStatus;
+
+  /// Outcome of the last lock-screen wake/release call.
+  ScreenResult? get screenResult => _screenResult;
+
+  /// True inside the night window while no turn or touch holds brightness.
+  ValueListenable<bool> get nightDimmed => _dimmer?.dimmed ?? _neverDimmed;
+
+  /// Any touch on the display: full brightness for a short while.
+  void touch() => _dimmer?.touch();
 
   InstallProgress get modelProgress {
     return _installer?.progress.value ?? InstallProgress.idle;
@@ -88,6 +112,7 @@ class DisplayController extends ChangeNotifier {
       ..add(_client.messages.listen(_onMessage))
       ..add(_client.statusChanges.listen(_onStatus));
     _client.connect(_settings.wsUri);
+    _dimmer?.start(_settings.dim);
     _startVoice();
   }
 
@@ -241,6 +266,7 @@ class DisplayController extends ChangeNotifier {
     if (addressChanged) {
       _client.connect(normalized.wsUri);
     }
+    _dimmer?.configure(normalized.dim);
     await _voice?.configure(normalized.wakeConfig);
     if (modeChanged) {
       await _applyKeepAlive();
@@ -256,7 +282,12 @@ class DisplayController extends ChangeNotifier {
     if (next != DisplayState.listening) {
       unawaited(_voice?.endCapture());
     }
+    if (next != DisplayState.idle) {
+      _dimmer?.hold(BrightHold.turn);
+    }
     if (next == DisplayState.idle) {
+      _dimmer?.release(BrightHold.turn);
+      unawaited(_releaseScreen());
       _transcript = '';
       _reply = '';
       _level.value = 0;
@@ -317,11 +348,37 @@ class DisplayController extends ChangeNotifier {
   }
 
   Future<void> _onWake() async {
+    await _wakeScreen();
     final result = await listen();
     if (result == ListenResult.started) {
       return;
     }
     await _voice?.endCapture();
+    if (_state == DisplayState.idle) {
+      _dimmer?.release(BrightHold.turn);
+      await _releaseScreen();
+    }
+  }
+
+  /// Screen on + above keyguard for this turn; full brightness first so
+  /// the panel does not light up dimmed.
+  Future<void> _wakeScreen() async {
+    final screen = _screen;
+    if (screen == null) {
+      return;
+    }
+    _dimmer?.hold(BrightHold.turn);
+    _screenWoken = true;
+    _screenResult = await screen.wake();
+  }
+
+  Future<void> _releaseScreen() async {
+    final screen = _screen;
+    if (screen == null || !_screenWoken) {
+      return;
+    }
+    _screenWoken = false;
+    _screenResult = await screen.release();
   }
 
   void _onCaptureDone(CaptureEnd reason) {
@@ -383,6 +440,8 @@ class DisplayController extends ChangeNotifier {
     _watchdog?.cancel();
     _installer?.progress.removeListener(notifyListeners);
     unawaited(_keepAlive?.stop());
+    unawaited(_releaseScreen());
+    _dimmer?.dispose();
     _client.dispose();
     _voice?.dispose();
     _level.dispose();

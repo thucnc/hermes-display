@@ -99,6 +99,47 @@ EMUI vẫn kill app nền dù có foreground service. Cấu hình thủ công:
 - **Chưa kiểm chứng:** nhận diện "Hey Sen" trên giọng nói thật, service chạy
   trên MatePad thật khi tắt màn hình, tải model qua mạng thật trên thiết bị.
 
+## 🌙 Giảm sáng ban đêm & bật màn hình khi gọi "Hey Sen"
+
+**Giảm sáng (mặc định BẬT, 23:00 → 06:00, 5%):** app đặt
+`WindowManager.LayoutParams.screenBrightness` cho cửa sổ của chính nó
+(không cần `WRITE_SETTINGS`, không đổi độ sáng hệ thống). Ngoài khung giờ hoặc
+khi tắt: `BRIGHTNESS_OVERRIDE_NONE` (trả về độ sáng tự động/hệ thống). Kiểm
+tra lại mỗi phút và khi app quay lại foreground. Slideshow + đồng hồ giảm
+opacity còn 70% trong khung giờ. Lượt hội thoại (wake word, nút micro, Hub)
+giữ sáng tối đa đến khi về idle; chạm màn hình sáng lại 30 giây. Khung giờ
+theo giờ địa phương, giờ bắt đầu tính, giờ kết thúc không tính; bắt đầu = kết
+thúc nghĩa là không giảm sáng. Cài đặt → "Giảm sáng ban đêm".
+
+**Bật màn hình khi nghe "Hey Sen":** wake word vẫn do foreground service +
+mic stream trong Flutter đảm nhận (KB-002). Khi phát hiện, `MainActivity`:
+`setShowWhenLocked(true)` + `setTurnScreenOn(true)` (API 27+; API 24–26 dùng
+`FLAG_SHOW_WHEN_LOCKED`/`FLAG_TURN_SCREEN_ON`), wake lock
+`ACQUIRE_CAUSES_WAKEUP` 10 s nếu màn hình đang tắt, chỉ gọi
+`requestDismissKeyguard` khi khoá màn hình **không** bảo mật (PIN/mật khẩu/
+vân tay vẫn giữ, app hiện phía trên), đưa task hiện có lên trước
+(`REORDER_TO_FRONT` + `singleTop`, không tạo instance mới). Hết lượt (idle,
+huỷ, lỗi) → gỡ toàn bộ cờ.
+
+### Huawei MatePad — cấp quyền (nếu màn hình không bật / app không hiện)
+
+1. Cài đặt → Ứng dụng → Hermes Display → Quyền → bật
+   **"Hiển thị cửa sổ bật lên khi chạy nền"** (Display pop-up windows while
+   running in background). Android 10+ chặn mở activity từ nền nếu thiếu quyền
+   này; màn hình vẫn sáng nhưng có thể chỉ thấy màn hình khoá.
+2. Cùng trang → bật **"Màn hình khoá"** / "Hiển thị trên màn hình khoá"
+   (Lock screen) nếu có.
+3. Các bước pin/chạy nền ở mục Wake Word phía trên vẫn cần.
+
+**Đã kiểm chứng:** unit/widget test (schedule qua nửa đêm, start = end, giờ
+sai, clamp, lưu cài đặt, giữ sáng theo lượt/chạm, wake/release cờ, huỷ giữa
+lượt, wake lặp lại, lỗi channel được báo không throw); debug APK build; trên
+emulator API 34: `dumpsys power` cho thấy override `0.05` trong khung giờ,
+`NaN` (hệ thống) ngoài khung giờ và trong 30 s sau khi chạm.
+**CHƯA KIỂM CHỨNG trên HarmonyOS / MatePad thật:** bật màn hình + hiện trên
+màn hình khoá khi nói "Hey Sen" (cả trên emulator cũng chưa, vì không phát
+được giọng nói vào mic emulator), hành vi giảm sáng của ROM Huawei.
+
 Giao thức audio: sau `{"type":"wake"}` client gửi binary frame PCM16 LE mono 16 kHz,
 kết thúc bằng `{"type":"audio_end"}` (hoặc `{"type":"cancel"}`).
 

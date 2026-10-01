@@ -26,6 +26,12 @@ abstract final class AppStrings {
   static const String alwaysListening = 'Luôn lắng nghe';
   static const String alwaysListeningHint =
       'Giữ micro khi tắt màn hình (hiện thông báo thường trực)';
+  static const String nightDim = 'Giảm sáng ban đêm';
+  static const String nightDimHint =
+      'Chỉ màn hình app; "Hey Sen" hoặc chạm để sáng lại';
+  static const String dimStart = 'Từ';
+  static const String dimEnd = 'Đến';
+  static const String dimLevel = 'Độ sáng ban đêm';
   static const String modelTitle = 'Model từ khoá';
   static const String modelIdle = 'Chưa cài';
   static const String modelDownloading = 'Đang tải';
