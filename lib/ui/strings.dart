@@ -11,12 +11,16 @@ abstract final class AppStrings {
 
   static const String inputHint = 'Nhập câu hỏi cho Hermes…';
   static const String sendOffline = 'Chưa kết nối tới Hermes Hub';
+  static const String micDenied = 'Cần cấp quyền micro trong Cài đặt hệ thống';
+  static const String micUnavailable = 'Không mở được micro';
 
   static const String settingsTitle = 'Cài đặt';
   static const String hubHost = 'Địa chỉ Hub (IP / hostname)';
   static const String hubPort = 'Cổng';
   static const String slideInterval = 'Chuyển ảnh mỗi';
   static const String wakeSensitivity = 'Độ nhạy từ khoá "Hey Sen"';
+  static const String wakeKeyword = 'Từ khoá đánh thức';
+  static const String invalidKeyword = 'Nhập từ khoá';
   static const String secondsSuffix = 'giây';
   static const String testConnection = 'Kiểm tra kết nối';
   static const String testing = 'Đang kiểm tra…';

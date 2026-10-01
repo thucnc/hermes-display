@@ -12,7 +12,8 @@ abstract final class WireKey {
 }
 
 /// Message `type` values. Incoming: state, tts, transcript, level, error.
-/// Outgoing: text_input, wake, cancel.
+/// Outgoing: text_input, wake, cancel, audio_end. Between `wake` and
+/// `audio_end` the client streams binary frames of PCM16 LE mono 16 kHz.
 abstract final class WireType {
   static const String state = 'state';
   static const String tts = 'tts';
@@ -22,6 +23,7 @@ abstract final class WireType {
   static const String textInput = 'text_input';
   static const String wake = 'wake';
   static const String cancel = 'cancel';
+  static const String audioEnd = 'audio_end';
 }
 
 sealed class HermesMessage {

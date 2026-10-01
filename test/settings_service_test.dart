@@ -21,6 +21,7 @@ void main() {
         port: 70000,
         slideIntervalSec: 1,
         wakeSensitivity: 0.7,
+        wakeKeyword: ' hey sen ',
       ),
     );
     final loaded = service.load();
@@ -28,5 +29,11 @@ void main() {
     expect(loaded.port, SettingsLimits.maxPort);
     expect(loaded.slideIntervalSec, SettingsLimits.minSlideSec);
     expect(loaded.wakeSensitivity, 0.7);
+    expect(loaded.wakeKeyword, 'HEY SEN');
+  });
+
+  test('blank keyword falls back to default', () {
+    final settings = HubSettings.defaults.copyWith(wakeKeyword: '  ');
+    expect(settings.normalized().wakeKeyword, HubDefaults.wakeKeyword);
   });
 }

@@ -12,7 +12,7 @@ class QuickInputBar extends StatefulWidget {
   const QuickInputBar({super.key, required this.onSubmit, this.onMic});
 
   final SendResult Function(String text) onSubmit;
-  final VoidCallback? onMic;
+  final Future<ListenResult> Function()? onMic;
 
   @override
   State<QuickInputBar> createState() => _QuickInputBarState();
@@ -50,13 +50,34 @@ class _QuickInputBarState extends State<QuickInputBar> {
       return;
     }
     if (result == SendResult.offline) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text(AppStrings.sendOffline)));
+      _notify(AppStrings.sendOffline);
       return;
     }
     _text.clear();
     _setMode(_BarMode.collapsed);
+  }
+
+  Future<void> _mic(Future<ListenResult> Function() onMic) async {
+    final result = await onMic();
+    if (!mounted) {
+      return;
+    }
+    final message = switch (result) {
+      ListenResult.offline => AppStrings.sendOffline,
+      ListenResult.noPermission => AppStrings.micDenied,
+      ListenResult.micUnavailable => AppStrings.micUnavailable,
+      ListenResult.started || ListenResult.busy => null,
+    };
+    if (message == null) {
+      return;
+    }
+    _notify(message);
+  }
+
+  void _notify(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -87,7 +108,7 @@ class _QuickInputBarState extends State<QuickInputBar> {
           _RoundButton(
             icon: Icons.mic_none_rounded,
             tooltip: AppStrings.tipMic,
-            onPressed: onMic,
+            onPressed: () => _mic(onMic),
           ),
           const SizedBox(width: Spacing.sm),
         ],

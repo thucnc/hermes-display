@@ -38,6 +38,10 @@ dependencies:
   wakelock_plus: ^1.4.0
   web_socket_channel: ^3.0.3
   sherpa_onnx: ^1.13.8
+  record: ^6.2.1
+  permission_handler: ^12.0.1
+  audioplayers: ^6.7.1
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:

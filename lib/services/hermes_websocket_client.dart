@@ -49,12 +49,28 @@ class HermesWebSocketClient {
   }
 
   bool send(String payload) {
-    final transport = _transport;
-    if (transport == null || _status != ConnectionStatus.connected) {
+    final transport = _liveTransport;
+    if (transport == null) {
       return false;
     }
     transport.send(payload);
     return true;
+  }
+
+  bool sendAudio(List<int> pcm) {
+    final transport = _liveTransport;
+    if (transport == null) {
+      return false;
+    }
+    transport.sendBytes(pcm);
+    return true;
+  }
+
+  HubTransport? get _liveTransport {
+    if (_status != ConnectionStatus.connected) {
+      return null;
+    }
+    return _transport;
   }
 
   /// One-shot reachability check that does not disturb the live connection.

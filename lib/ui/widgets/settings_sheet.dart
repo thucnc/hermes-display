@@ -46,6 +46,9 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   late final TextEditingController _port = TextEditingController(
     text: _initial.port.toString(),
   );
+  late final TextEditingController _keyword = TextEditingController(
+    text: _initial.wakeKeyword,
+  );
   late double _slideSec = _initial.slideIntervalSec.toDouble();
   late double _sensitivity = _initial.wakeSensitivity;
   _ProbeState _probe = _ProbeState.idle;
@@ -54,6 +57,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   void dispose() {
     _host.dispose();
     _port.dispose();
+    _keyword.dispose();
     super.dispose();
   }
 
@@ -66,6 +70,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
       port: int.parse(_port.text.trim()),
       slideIntervalSec: _slideSec.round(),
       wakeSensitivity: _sensitivity,
+      wakeKeyword: _keyword.text,
     );
   }
 
@@ -98,6 +103,13 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     final host = value?.trim() ?? '';
     if (host.isEmpty || host.contains(' ') || host.contains('/')) {
       return AppStrings.invalidHost;
+    }
+    return null;
+  }
+
+  String? _validateKeyword(String? value) {
+    if (value?.trim().isEmpty ?? true) {
+      return AppStrings.invalidKeyword;
     }
     return null;
   }
@@ -153,6 +165,16 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                   onChanged: (v) => setState(() => _slideSec = v),
                 ),
               ),
+              TextFormField(
+                controller: _keyword,
+                validator: _validateKeyword,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(
+                  labelText: AppStrings.wakeKeyword,
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: Spacing.md),
               _sliderTile(
                 label: AppStrings.wakeSensitivity,
                 valueLabel: '${(_sensitivity * _percentScale).round()}%',

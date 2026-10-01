@@ -5,6 +5,7 @@ abstract final class HubDefaults {
   static const int port = 8900;
   static const int slideIntervalSec = 20;
   static const double wakeSensitivity = 0.5;
+  static const String wakeKeyword = 'HEY SEN';
 }
 
 /// Accepted ranges for user-editable settings.
@@ -31,4 +32,39 @@ abstract final class NetworkTiming {
 abstract final class StateTiming {
   /// Fallback to idle when the hub goes silent mid-interaction.
   static const Duration activeTimeout = Duration(seconds: 45);
+}
+
+/// Capture format shared by the mic, the keyword spotter and the hub.
+abstract final class AudioSpec {
+  static const int sampleRate = 16000;
+  static const int channels = 1;
+  static const int bytesPerSample = 2;
+  static const int int16Max = 32768;
+}
+
+abstract final class VoiceTiming {
+  /// Trailing silence that ends an utterance once speech was heard.
+  static const Duration endSilence = Duration(milliseconds: 1200);
+
+  /// Give up if the user never starts talking after the cue.
+  static const Duration noSpeech = Duration(seconds: 6);
+
+  /// Hard cap on a single utterance.
+  static const Duration maxUtterance = Duration(seconds: 15);
+}
+
+abstract final class VoiceLevels {
+  /// RMS (0..1) above which a frame counts as speech.
+  static const double speechRms = 0.02;
+
+  /// Scales RMS into the 0..1 range the waveform expects.
+  static const double meterGain = 8;
+}
+
+abstract final class WakeTuning {
+  /// Sensitivity 0..1 maps linearly onto this spotter threshold range;
+  /// higher sensitivity means a lower threshold.
+  static const double strictThreshold = 0.5;
+  static const double looseThreshold = 0.05;
+  static const int numThreads = 1;
 }

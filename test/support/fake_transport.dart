@@ -17,6 +17,7 @@ class FakeTransport implements HubTransport {
   final Completer<void> _ready = Completer<void>();
   final StreamController<dynamic> _incoming = StreamController<dynamic>();
   final List<String> sent = [];
+  final List<List<int>> sentBytes = [];
   bool closed = false;
 
   @override
@@ -27,6 +28,9 @@ class FakeTransport implements HubTransport {
 
   @override
   void send(String data) => sent.add(data);
+
+  @override
+  void sendBytes(List<int> data) => sentBytes.add(data);
 
   @override
   Future<void> close() async {

@@ -5,11 +5,14 @@ import 'package:flutter/foundation.dart';
 import '../../services/hermes_websocket_client.dart';
 import '../../services/protocol/hermes_message.dart';
 import '../../services/settings_service.dart';
+import '../../services/wake_word_service.dart';
 import '../constants/app_constants.dart';
 import 'connection_status.dart';
 import 'display_state.dart';
 
 enum SendResult { sent, empty, offline }
+
+enum ListenResult { started, busy, offline, noPermission, micUnavailable }
 
 /// Single source of truth for the display. UI reads from here and calls
 /// intents; services are never touched by widgets directly.
@@ -17,12 +20,18 @@ class DisplayController extends ChangeNotifier {
   DisplayController({
     required SettingsService settingsService,
     required HermesWebSocketClient client,
+    WakeWordService? voice,
   }) : _settingsService = settingsService,
        _client = client,
+       _voice = voice,
        _settings = settingsService.load();
 
   final SettingsService _settingsService;
   final HermesWebSocketClient _client;
+
+  /// Null on builds without a microphone pipeline; mic button then only
+  /// signals the hub.
+  final WakeWordService? _voice;
   final List<StreamSubscription<Object?>> _subscriptions = [];
   final ValueNotifier<double> _level = ValueNotifier<double>(0);
   Timer? _watchdog;
@@ -33,6 +42,9 @@ class DisplayController extends ChangeNotifier {
   String _transcript = '';
   String _reply = '';
   String? _lastError;
+  VoiceStatus? _voiceStatus;
+  bool _starting = false;
+  bool _disposed = false;
 
   HubSettings get settings => _settings;
   DisplayState get state => _state;
@@ -40,6 +52,7 @@ class DisplayController extends ChangeNotifier {
   String get transcript => _transcript;
   String get reply => _reply;
   String? get lastError => _lastError;
+  VoiceStatus? get voiceStatus => _voiceStatus;
 
   /// Audio level 0..1, updated at high rate; listen separately to avoid
   /// rebuilding the whole tree.
@@ -53,6 +66,16 @@ class DisplayController extends ChangeNotifier {
       ..add(_client.messages.listen(_onMessage))
       ..add(_client.statusChanges.listen(_onStatus));
     _client.connect(_settings.wsUri);
+    _startVoice();
+  }
+
+  void _startVoice() {
+    final voice = _voice;
+    if (voice == null) {
+      return;
+    }
+    _subscriptions.add(voice.events.listen(_onVoice));
+    unawaited(voice.start(_settings.wakeConfig).then(_setVoiceStatus));
   }
 
   void reconnect() => _client.connect(_settings.wsUri);
@@ -83,6 +106,50 @@ class DisplayController extends ChangeNotifier {
     return SendResult.sent;
   }
 
+  /// Mic button and wake word entry point: cue, listening, then capture.
+  Future<ListenResult> listen() async {
+    final voice = _voice;
+    if (voice == null) {
+      return wake() ? ListenResult.started : ListenResult.offline;
+    }
+    if (_state == DisplayState.listening || _starting) {
+      return ListenResult.busy;
+    }
+    if (_connection != ConnectionStatus.connected) {
+      await voice.endCapture();
+      return ListenResult.offline;
+    }
+    _starting = true;
+    try {
+      return await _beginListening(voice);
+    } finally {
+      _starting = false;
+    }
+  }
+
+  Future<ListenResult> _beginListening(WakeWordService voice) async {
+    await voice.playCue();
+    final status = await voice.beginCapture();
+    _setVoiceStatus(status);
+    if (status != VoiceStatus.ready) {
+      await voice.endCapture();
+      return _failureFor(status);
+    }
+    if (!wake()) {
+      await voice.endCapture();
+      return ListenResult.offline;
+    }
+    return ListenResult.started;
+  }
+
+  static ListenResult _failureFor(VoiceStatus status) {
+    return switch (status) {
+      VoiceStatus.noPermission ||
+      VoiceStatus.blocked => ListenResult.noPermission,
+      _ => ListenResult.micUnavailable,
+    };
+  }
+
   bool wake() {
     if (!_client.send(HermesCodec.command(WireType.wake))) {
       return false;
@@ -104,6 +171,7 @@ class DisplayController extends ChangeNotifier {
     if (addressChanged) {
       _client.connect(normalized.wsUri);
     }
+    await _voice?.configure(normalized.wakeConfig);
   }
 
   Future<bool> testConnection(HubSettings candidate) {
@@ -112,6 +180,9 @@ class DisplayController extends ChangeNotifier {
 
   void _onEnter(DisplayState next) {
     _armWatchdog(next);
+    if (next != DisplayState.listening) {
+      unawaited(_voice?.endCapture());
+    }
     if (next == DisplayState.idle) {
       _transcript = '';
       _reply = '';
@@ -157,6 +228,52 @@ class DisplayController extends ChangeNotifier {
     }
   }
 
+  void _onVoice(VoiceEvent event) {
+    switch (event) {
+      case WakeHeard():
+        unawaited(_onWake());
+      case SpeechAudio(:final pcm, :final level):
+        if (_state != DisplayState.listening) {
+          return;
+        }
+        _client.sendAudio(pcm);
+        _level.value = level;
+      case CaptureDone(:final reason):
+        _onCaptureDone(reason);
+    }
+  }
+
+  Future<void> _onWake() async {
+    final result = await listen();
+    if (result == ListenResult.started) {
+      return;
+    }
+    await _voice?.endCapture();
+  }
+
+  void _onCaptureDone(CaptureEnd reason) {
+    if (_state != DisplayState.listening) {
+      return;
+    }
+    switch (reason) {
+      case CaptureEnd.speechEnded:
+      case CaptureEnd.maxLength:
+        _client.send(HermesCodec.command(WireType.audioEnd));
+        transition(DisplayState.thinking);
+      case CaptureEnd.noSpeech:
+      case CaptureEnd.stopped:
+        cancel();
+    }
+  }
+
+  void _setVoiceStatus(VoiceStatus status) {
+    if (_disposed || status == _voiceStatus) {
+      return;
+    }
+    _voiceStatus = status;
+    notifyListeners();
+  }
+
   void _onStatus(ConnectionStatus status) {
     _connection = status;
     if (status == ConnectionStatus.connected) {
@@ -186,11 +303,13 @@ class DisplayController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
     _watchdog?.cancel();
     _client.dispose();
+    _voice?.dispose();
     _level.dispose();
     super.dispose();
   }

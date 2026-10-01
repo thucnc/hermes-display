@@ -45,6 +45,20 @@ Hermes Display là client Flutter biến tablet (đặc biệt là Huawei MatePa
 
 ---
 
+## 🎙️ Wake Word Model
+
+Wake word chạy offline bằng sherpa-onnx KWS. Model không đi kèm APK; giải nén
+một model streaming transducer KWS (vd. `sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01`)
+vào thư mục `<app support>/kws/` (`/data/user/0/com.hermes.display.hermes_display/files/kws/`):
+
+- `encoder*.onnx`, `decoder*.onnx`, `joiner*.onnx` (ưu tiên bản `.int8.onnx`), `tokens.txt`
+- `bpe.vocab` để dùng từ khoá tự do trong Cài đặt, hoặc `keywords.txt` đã tokenize sẵn
+
+Thiếu model: app vẫn chạy, nút micro vẫn ghi âm và stream lên Hub.
+
+Giao thức audio: sau `{"type":"wake"}` client gửi binary frame PCM16 LE mono 16 kHz,
+kết thúc bằng `{"type":"audio_end"}` (hoặc `{"type":"cancel"}`).
+
 ## 🚀 Cài đặt & Build
 
 ```bash

@@ -26,14 +26,15 @@ Last Updated: 2026-10-01 14:45
 
 ## In Progress
 
-- [ ] **KB-002**: Wake Word Porcupine / Sherpa KWS với từ khóa "Hey Sen" & Offline Vietnamese Voice Engine
+## Review
+
+- [ ] **KB-002**: Wake Word Sherpa KWS "Hey Sen" & voice capture pipeline
   - Priority: High
   - Assignee: claude-code (opus-5-5)
-  - Started: 2026-10-01 15:15
-  - Criteria: Keyword spotting "Hey Sen", audio recording / stream capture, audio cue feedback, transition to LISTENING state, integration with sherpa_onnx / audio pipeline.
+  - Completed: 2026-10-01
+  - Tests: 46/46 unit & widget tests passed, 0 analyze issues, debug APK builds.
+  - Note: KWS model must be placed in `<app support>/kws/` (see README).
   - Tags: #wakeword #hey-sen #voice
-
-## Review
 
 - [ ] **KB-001**: Kiến trúc Scaffolding, State Machine, Ambient Slideshow UI & WebSocket Client
   - Priority: Critical

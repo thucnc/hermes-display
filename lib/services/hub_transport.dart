@@ -7,6 +7,10 @@ abstract interface class HubTransport {
   Future<void> get ready;
   Stream<dynamic> get stream;
   void send(String data);
+
+  /// Binary frame; used for raw PCM16 microphone audio.
+  void sendBytes(List<int> data);
+
   Future<void> close();
 }
 
@@ -30,6 +34,9 @@ final class WsTransport implements HubTransport {
 
   @override
   void send(String data) => _channel.sink.add(data);
+
+  @override
+  void sendBytes(List<int> data) => _channel.sink.add(data);
 
   @override
   Future<void> close() async => _channel.sink.close();

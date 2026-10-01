@@ -85,7 +85,7 @@ class AmbientScreen extends StatelessWidget {
                     alignment: Alignment.bottomRight,
                     child: QuickInputBar(
                       onSubmit: controller.sendText,
-                      onMic: controller.wake,
+                      onMic: controller.listen,
                     ),
                   ),
                 ],
