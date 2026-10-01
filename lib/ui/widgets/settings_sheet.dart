@@ -1,0 +1,269 @@
+import 'package:flutter/material.dart';
+
+import '../../core/constants/app_constants.dart';
+import '../../core/state/display_controller.dart';
+import '../../services/settings_service.dart';
+import '../strings.dart';
+import '../theme/app_theme.dart';
+
+enum _ProbeState { idle, testing, success, failure }
+
+Future<void> showSettingsSheet(
+  BuildContext context,
+  DisplayController controller,
+) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    constraints: const BoxConstraints(maxWidth: _SettingsSheet.maxWidth),
+    builder: (_) => _SettingsSheet(controller: controller),
+  );
+}
+
+class _SettingsSheet extends StatefulWidget {
+  const _SettingsSheet({required this.controller});
+
+  final DisplayController controller;
+
+  static const double maxWidth = 640;
+
+  @override
+  State<_SettingsSheet> createState() => _SettingsSheetState();
+}
+
+class _SettingsSheetState extends State<_SettingsSheet> {
+  static const double _titleSize = 22;
+  static const int _sensitivityDivisions = 10;
+  static const int _percentScale = 100;
+
+  final GlobalKey<FormState> _form = GlobalKey<FormState>();
+  late final HubSettings _initial = widget.controller.settings;
+  late final TextEditingController _host = TextEditingController(
+    text: _initial.host,
+  );
+  late final TextEditingController _port = TextEditingController(
+    text: _initial.port.toString(),
+  );
+  late double _slideSec = _initial.slideIntervalSec.toDouble();
+  late double _sensitivity = _initial.wakeSensitivity;
+  _ProbeState _probe = _ProbeState.idle;
+
+  @override
+  void dispose() {
+    _host.dispose();
+    _port.dispose();
+    super.dispose();
+  }
+
+  HubSettings? _draft() {
+    if (!(_form.currentState?.validate() ?? false)) {
+      return null;
+    }
+    return _initial.copyWith(
+      host: _host.text.trim(),
+      port: int.parse(_port.text.trim()),
+      slideIntervalSec: _slideSec.round(),
+      wakeSensitivity: _sensitivity,
+    );
+  }
+
+  Future<void> _test() async {
+    final draft = _draft();
+    if (draft == null) {
+      return;
+    }
+    setState(() => _probe = _ProbeState.testing);
+    final ok = await widget.controller.testConnection(draft);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _probe = ok ? _ProbeState.success : _ProbeState.failure);
+  }
+
+  Future<void> _save() async {
+    final draft = _draft();
+    if (draft == null) {
+      return;
+    }
+    await widget.controller.applySettings(draft);
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).pop();
+  }
+
+  String? _validateHost(String? value) {
+    final host = value?.trim() ?? '';
+    if (host.isEmpty || host.contains(' ') || host.contains('/')) {
+      return AppStrings.invalidHost;
+    }
+    return null;
+  }
+
+  String? _validatePort(String? value) {
+    final port = int.tryParse(value?.trim() ?? '');
+    if (port == null ||
+        port < SettingsLimits.minPort ||
+        port > SettingsLimits.maxPort) {
+      return AppStrings.invalidPort;
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final insets = MediaQuery.viewInsetsOf(context);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        Spacing.lg,
+        0,
+        Spacing.lg,
+        Spacing.lg + insets.bottom,
+      ),
+      child: Form(
+        key: _form,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                AppStrings.settingsTitle,
+                style: TextStyle(
+                  fontSize: _titleSize,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: Spacing.lg),
+              _addressRow(),
+              const SizedBox(height: Spacing.md),
+              _probeRow(),
+              const SizedBox(height: Spacing.lg),
+              _sliderTile(
+                label: AppStrings.slideInterval,
+                valueLabel: '${_slideSec.round()} ${AppStrings.secondsSuffix}',
+                slider: Slider(
+                  value: _slideSec,
+                  min: SettingsLimits.minSlideSec.toDouble(),
+                  max: SettingsLimits.maxSlideSec.toDouble(),
+                  divisions:
+                      SettingsLimits.maxSlideSec - SettingsLimits.minSlideSec,
+                  onChanged: (v) => setState(() => _slideSec = v),
+                ),
+              ),
+              _sliderTile(
+                label: AppStrings.wakeSensitivity,
+                valueLabel: '${(_sensitivity * _percentScale).round()}%',
+                slider: Slider(
+                  value: _sensitivity,
+                  min: SettingsLimits.minSensitivity,
+                  max: SettingsLimits.maxSensitivity,
+                  divisions: _sensitivityDivisions,
+                  onChanged: (v) => setState(() => _sensitivity = v),
+                ),
+              ),
+              const SizedBox(height: Spacing.lg),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text(AppStrings.cancel),
+                  ),
+                  const SizedBox(width: Spacing.sm),
+                  FilledButton(
+                    onPressed: _save,
+                    child: const Text(AppStrings.save),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _addressRow() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 3,
+          child: TextFormField(
+            controller: _host,
+            validator: _validateHost,
+            keyboardType: TextInputType.url,
+            decoration: const InputDecoration(
+              labelText: AppStrings.hubHost,
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ),
+        const SizedBox(width: Spacing.md),
+        Expanded(
+          child: TextFormField(
+            controller: _port,
+            validator: _validatePort,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: AppStrings.hubPort,
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _probeRow() {
+    final testing = _probe == _ProbeState.testing;
+    return Row(
+      children: [
+        OutlinedButton.icon(
+          onPressed: testing ? null : _test,
+          icon: const Icon(Icons.wifi_tethering_rounded),
+          label: const Text(AppStrings.testConnection),
+        ),
+        const SizedBox(width: Spacing.md),
+        Expanded(child: _probeLabel()),
+      ],
+    );
+  }
+
+  Widget _probeLabel() {
+    return switch (_probe) {
+      _ProbeState.idle => const SizedBox.shrink(),
+      _ProbeState.testing => const Text(AppStrings.testing),
+      _ProbeState.success => const Text(
+        AppStrings.testOk,
+        style: TextStyle(color: AppPalette.online),
+      ),
+      _ProbeState.failure => const Text(
+        AppStrings.testFail,
+        style: TextStyle(color: AppPalette.offline),
+      ),
+    };
+  }
+
+  Widget _sliderTile({
+    required String label,
+    required String valueLabel,
+    required Widget slider,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text(label)),
+            Text(valueLabel, style: const TextStyle(color: AppPalette.accent)),
+          ],
+        ),
+        slider,
+      ],
+    );
+  }
+}
