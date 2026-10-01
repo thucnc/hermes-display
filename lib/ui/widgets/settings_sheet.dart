@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/state/display_controller.dart';
+import '../../services/audio/wake_model_installer.dart';
 import '../../services/settings_service.dart';
+import '../../services/wake_word_service.dart';
 import '../strings.dart';
 import '../theme/app_theme.dart';
 
@@ -51,6 +53,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   );
   late double _slideSec = _initial.slideIntervalSec.toDouble();
   late double _sensitivity = _initial.wakeSensitivity;
+  late bool _alwaysListening = _initial.alwaysListening;
   _ProbeState _probe = _ProbeState.idle;
 
   @override
@@ -71,6 +74,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
       slideIntervalSec: _slideSec.round(),
       wakeSensitivity: _sensitivity,
       wakeKeyword: _keyword.text,
+      alwaysListening: _alwaysListening,
     );
   }
 
@@ -108,10 +112,11 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   }
 
   String? _validateKeyword(String? value) {
-    if (value?.trim().isEmpty ?? true) {
-      return AppStrings.invalidKeyword;
-    }
-    return null;
+    return switch (widget.controller.checkKeyword(value ?? '')) {
+      KeywordCheck.empty => AppStrings.invalidKeyword,
+      KeywordCheck.unsupported => AppStrings.keywordUnsupported,
+      KeywordCheck.ok || KeywordCheck.unverified => null,
+    };
   }
 
   String? _validatePort(String? value) {
@@ -186,6 +191,14 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                   onChanged: (v) => setState(() => _sensitivity = v),
                 ),
               ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text(AppStrings.alwaysListening),
+                subtitle: const Text(AppStrings.alwaysListeningHint),
+                value: _alwaysListening,
+                onChanged: (v) => setState(() => _alwaysListening = v),
+              ),
+              _modelRow(),
               const SizedBox(height: Spacing.lg),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -267,6 +280,44 @@ class _SettingsSheetState extends State<_SettingsSheet> {
         AppStrings.testFail,
         style: TextStyle(color: AppPalette.offline),
       ),
+    };
+  }
+
+  Widget _modelRow() {
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) {
+        final progress = widget.controller.modelProgress;
+        final failed = progress.phase == InstallPhase.failed;
+        return Row(
+          children: [
+            const Expanded(child: Text(AppStrings.modelTitle)),
+            Text(
+              _modelLabel(progress),
+              style: TextStyle(
+                color: failed ? AppPalette.offline : AppPalette.accent,
+              ),
+            ),
+            if (failed)
+              TextButton(
+                onPressed: widget.controller.installModel,
+                child: const Text(AppStrings.retry),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _modelLabel(InstallProgress progress) {
+    return switch (progress.phase) {
+      InstallPhase.idle => AppStrings.modelIdle,
+      InstallPhase.downloading =>
+        '${AppStrings.modelDownloading} '
+            '${(progress.fraction * _percentScale).round()}%',
+      InstallPhase.verifying => AppStrings.modelVerifying,
+      InstallPhase.ready => AppStrings.modelReady,
+      InstallPhase.failed => AppStrings.modelFailed,
     };
   }
 

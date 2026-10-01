@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_display/core/constants/app_constants.dart';
+import 'package:hermes_display/services/audio/mic_coordinator.dart';
 import 'package:hermes_display/services/audio/mic_source.dart';
 import 'package:hermes_display/services/wake_word_service.dart';
 
@@ -11,6 +12,7 @@ void main() {
   late FakeDetector detector;
   late FakeCue cue;
   late WakeWordService service;
+  late MicCoordinator lease;
   late List<VoiceEvent> events;
 
   void build({
@@ -20,7 +22,13 @@ void main() {
     mic = FakeMic(permission: permission);
     detector = FakeDetector(available: model);
     cue = FakeCue();
-    service = WakeWordService(mic: mic, detector: detector, cue: cue);
+    lease = MicCoordinator();
+    service = WakeWordService(
+      mic: mic,
+      detector: detector,
+      cue: cue,
+      coordinator: lease,
+    );
     events = [];
     service.events.listen(events.add);
   }
@@ -180,7 +188,8 @@ void main() {
     await pumpEventQueue();
     expect(mic.isOpen, isTrue);
     expect(service.phase, VoicePhase.armed);
-    expect(mic.opens, 2);
+    // start, wake-to-capture hand-off, resume.
+    expect(mic.opens, 3);
   });
 
   test('reloads the detector only when config changes', () async {
@@ -203,5 +212,145 @@ void main() {
     const strict = WakeConfig(keyword: 'X', sensitivity: 0);
     expect(loose.threshold, closeTo(WakeTuning.looseThreshold, 1e-9));
     expect(strict.threshold, closeTo(WakeTuning.strictThreshold, 1e-9));
+  });
+
+  group('mic hand-off', () {
+    Future<void> armed() async {
+      build();
+      service.start(Voice.config);
+      await pumpEventQueue();
+    }
+
+    test('wake releases the mic before capture takes it', () async {
+      await armed();
+      expect(lease.owner, MicOwner.wakeWord);
+
+      mic.emit(Frames.of(Voice.wakeAmplitude));
+      await pumpEventQueue();
+      expect(lease.owner, isNull, reason: 'released once woken');
+      expect(mic.isOpen, isFalse);
+
+      service.beginCapture();
+      await pumpEventQueue();
+      expect(lease.owner, MicOwner.voiceTurn);
+      expect(mic.opens, 2);
+
+      await feed(Frames.loud, Frames.chunk);
+      await feed(Frames.quiet, VoiceTiming.endSilence);
+      expect(lease.owner, MicOwner.wakeWord, reason: 'resumes after turn');
+      expect(mic.isOpen, isTrue);
+    });
+
+    test('cancel mid-turn returns the mic to wake word', () async {
+      await armed();
+      service.beginCapture();
+      await pumpEventQueue();
+      await feed(Frames.loud, Frames.chunk);
+      expect(lease.owner, MicOwner.voiceTurn);
+
+      service.endCapture();
+      await pumpEventQueue();
+      expect(lease.owner, MicOwner.wakeWord);
+      expect(service.phase, VoicePhase.armed);
+      expect(mic.isOpen, isTrue);
+      expect(detector.resets, greaterThan(0));
+    });
+
+    test('cancel while capture is starting never leaks the lease', () async {
+      await armed();
+      late VoiceStatus status;
+      service.beginCapture().then((s) => status = s);
+      service.endCapture();
+      await pumpEventQueue();
+
+      expect(status, VoiceStatus.micBusy);
+      expect(service.phase, VoicePhase.armed);
+      expect(lease.owner, MicOwner.wakeWord);
+      expect(mic.isOpen, isTrue);
+    });
+
+    test('double start opens the capture mic once', () async {
+      await armed();
+      final results = <VoiceStatus>[];
+      service.beginCapture().then(results.add);
+      service.beginCapture().then(results.add);
+      await pumpEventQueue();
+
+      expect(results, [VoiceStatus.ready, VoiceStatus.ready]);
+      expect(mic.opens, 2, reason: 'one wake open, one capture open');
+      expect(lease.owner, MicOwner.voiceTurn);
+    });
+
+    test('double service start acquires one lease', () async {
+      build();
+      service.start(Voice.config);
+      service.start(Voice.config);
+      await pumpEventQueue();
+      expect(mic.opens, 1);
+      expect(detector.loads, hasLength(1));
+    });
+
+    test('waits for another recorder, then resumes', () async {
+      build();
+      final other = lease.tryAcquire(MicOwner.voiceTurn)!;
+      service.start(Voice.config);
+      await pumpEventQueue();
+      expect(mic.isOpen, isFalse);
+
+      late VoiceStatus status;
+      service.beginCapture().then((s) => status = s);
+      await pumpEventQueue();
+      expect(status, VoiceStatus.micBusy);
+
+      lease.release(other);
+      await pumpEventQueue();
+      expect(lease.owner, MicOwner.wakeWord);
+      expect(mic.isOpen, isTrue);
+    });
+  });
+
+  group('background mode', () {
+    test('keep listening ignores screen-off lifecycle', () async {
+      build();
+      service.setBackgroundMode(BackgroundMode.keepListening);
+      service.start(Voice.config);
+      await pumpEventQueue();
+
+      service.handleLifecycle(AppLifecycleState.hidden);
+      service.handleLifecycle(AppLifecycleState.paused);
+      await pumpEventQueue();
+      expect(service.phase, VoicePhase.armed);
+      expect(mic.isOpen, isTrue);
+
+      mic.emit(Frames.of(Voice.wakeAmplitude));
+      await pumpEventQueue();
+      expect(events.single, isA<WakeHeard>());
+    });
+
+    test('detach still releases the mic', () async {
+      build();
+      service.setBackgroundMode(BackgroundMode.keepListening);
+      service.start(Voice.config);
+      await pumpEventQueue();
+
+      service.handleLifecycle(AppLifecycleState.detached);
+      await pumpEventQueue();
+      expect(mic.isOpen, isFalse);
+      expect(lease.owner, isNull);
+    });
+  });
+
+  test('reloadModel arms the mic once a model appears', () async {
+    build(model: false);
+    service.start(Voice.config);
+    await pumpEventQueue();
+    expect(mic.isOpen, isFalse);
+
+    detector.available = true;
+    late VoiceStatus status;
+    service.reloadModel().then((s) => status = s);
+    await pumpEventQueue();
+    expect(status, VoiceStatus.ready);
+    expect(mic.isOpen, isTrue);
   });
 }

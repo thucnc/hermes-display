@@ -21,6 +21,18 @@ abstract final class AppStrings {
   static const String wakeSensitivity = 'Độ nhạy từ khoá "Hey Sen"';
   static const String wakeKeyword = 'Từ khoá đánh thức';
   static const String invalidKeyword = 'Nhập từ khoá';
+  static const String keywordUnsupported =
+      'Model không nhận được từ khoá này (chỉ chữ tiếng Anh A–Z)';
+  static const String alwaysListening = 'Luôn lắng nghe';
+  static const String alwaysListeningHint =
+      'Giữ micro khi tắt màn hình (hiện thông báo thường trực)';
+  static const String modelTitle = 'Model từ khoá';
+  static const String modelIdle = 'Chưa cài';
+  static const String modelDownloading = 'Đang tải';
+  static const String modelVerifying = 'Đang kiểm tra…';
+  static const String modelReady = 'Đã cài';
+  static const String modelFailed = 'Tải thất bại — micro vẫn dùng được';
+  static const String retry = 'Thử lại';
   static const String secondsSuffix = 'giây';
   static const String testConnection = 'Kiểm tra kết nối';
   static const String testing = 'Đang kiểm tra…';

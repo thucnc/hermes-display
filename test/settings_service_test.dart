@@ -9,6 +9,7 @@ void main() {
     final service = await SettingsService.create();
     final settings = service.load();
     expect(settings.host, HubDefaults.host);
+    expect(settings.alwaysListening, isTrue);
     expect(settings.wsUri.toString(), 'ws://localhost:8900');
   });
 
@@ -22,6 +23,7 @@ void main() {
         slideIntervalSec: 1,
         wakeSensitivity: 0.7,
         wakeKeyword: ' hey sen ',
+        alwaysListening: false,
       ),
     );
     final loaded = service.load();
@@ -30,6 +32,7 @@ void main() {
     expect(loaded.slideIntervalSec, SettingsLimits.minSlideSec);
     expect(loaded.wakeSensitivity, 0.7);
     expect(loaded.wakeKeyword, 'HEY SEN');
+    expect(loaded.alwaysListening, isFalse);
   });
 
   test('blank keyword falls back to default', () {

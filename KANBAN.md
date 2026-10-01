@@ -33,7 +33,10 @@ Last Updated: 2026-10-01 14:45
   - Assignee: claude-code (opus-5-5)
   - Completed: 2026-10-01
   - Tests: 46/46 unit & widget tests passed, 0 analyze issues, debug APK builds.
-  - Note: KWS model must be placed in `<app support>/kws/` (see README).
+  - KB-002b: model auto-installer (SHA-256 pinned, atomic), "HEY SEN" →
+    `▁HE Y ▁SE N`, mic lease hand-off, microphone foreground service,
+    "Luôn lắng nghe" toggle. Tests 93/93.
+  - Unverified: detection on real speech, screen-off on a real MatePad.
   - Tags: #wakeword #hey-sen #voice
 
 - [ ] **KB-001**: Kiến trúc Scaffolding, State Machine, Ambient Slideshow UI & WebSocket Client

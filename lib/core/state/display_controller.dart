@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../services/audio/keyword_tokens.dart' as tokens;
+import '../../services/audio/mic_keep_alive.dart';
+import '../../services/audio/wake_model_installer.dart';
 import '../../services/hermes_websocket_client.dart';
 import '../../services/protocol/hermes_message.dart';
 import '../../services/settings_service.dart';
@@ -21,9 +24,13 @@ class DisplayController extends ChangeNotifier {
     required SettingsService settingsService,
     required HermesWebSocketClient client,
     WakeWordService? voice,
+    MicKeepAlive? keepAlive,
+    WakeModelInstaller? installer,
   }) : _settingsService = settingsService,
        _client = client,
        _voice = voice,
+       _keepAlive = keepAlive,
+       _installer = installer,
        _settings = settingsService.load();
 
   final SettingsService _settingsService;
@@ -32,6 +39,12 @@ class DisplayController extends ChangeNotifier {
   /// Null on builds without a microphone pipeline; mic button then only
   /// signals the hub.
   final WakeWordService? _voice;
+
+  /// Null: no foreground service; the mic pauses with the app.
+  final MicKeepAlive? _keepAlive;
+
+  /// Null: no download; the model must already be on disk.
+  final WakeModelInstaller? _installer;
   final List<StreamSubscription<Object?>> _subscriptions = [];
   final ValueNotifier<double> _level = ValueNotifier<double>(0);
   Timer? _watchdog;
@@ -54,6 +67,15 @@ class DisplayController extends ChangeNotifier {
   String? get lastError => _lastError;
   VoiceStatus? get voiceStatus => _voiceStatus;
 
+  InstallProgress get modelProgress {
+    return _installer?.progress.value ?? InstallProgress.idle;
+  }
+
+  /// Settings keyword validation against the installed vocabulary.
+  KeywordCheck checkKeyword(String keyword) {
+    return _voice?.checkKeyword(keyword) ?? tokens.checkKeyword(keyword, null);
+  }
+
   /// Audio level 0..1, updated at high rate; listen separately to avoid
   /// rebuilding the whole tree.
   ValueListenable<double> get level => _level;
@@ -75,7 +97,54 @@ class DisplayController extends ChangeNotifier {
       return;
     }
     _subscriptions.add(voice.events.listen(_onVoice));
-    unawaited(voice.start(_settings.wakeConfig).then(_setVoiceStatus));
+    _installer?.progress.addListener(notifyListeners);
+    unawaited(_bootVoice(voice));
+  }
+
+  Future<void> _bootVoice(WakeWordService voice) async {
+    _setVoiceStatus(await voice.start(_settings.wakeConfig));
+    await _applyKeepAlive();
+    await installModel();
+  }
+
+  /// Downloads the keyword model if missing, then arms the wake word.
+  /// Safe to call again after a failure (Settings retry button).
+  Future<void> installModel() async {
+    final installer = _installer;
+    final voice = _voice;
+    if (installer == null || voice == null) {
+      return;
+    }
+    final model = await installer.ensureInstalled();
+    if (model == null || _disposed) {
+      return;
+    }
+    _setVoiceStatus(await voice.reloadModel());
+  }
+
+  /// Starts or stops the microphone foreground service to match settings.
+  Future<void> _applyKeepAlive() async {
+    final voice = _voice;
+    final keepAlive = _keepAlive;
+    if (voice == null || keepAlive == null) {
+      return;
+    }
+    if (!_settings.alwaysListening || !_micAllowed) {
+      voice.setBackgroundMode(BackgroundMode.releaseMic);
+      await keepAlive.stop();
+      return;
+    }
+    final running = await keepAlive.start();
+    voice.setBackgroundMode(
+      running ? BackgroundMode.keepListening : BackgroundMode.releaseMic,
+    );
+  }
+
+  bool get _micAllowed {
+    return switch (_voiceStatus) {
+      VoiceStatus.noPermission || VoiceStatus.blocked || null => false,
+      _ => true,
+    };
   }
 
   void reconnect() => _client.connect(_settings.wsUri);
@@ -165,6 +234,7 @@ class DisplayController extends ChangeNotifier {
   Future<void> applySettings(HubSettings next) async {
     final normalized = next.normalized();
     final addressChanged = !normalized.sameAddress(_settings);
+    final modeChanged = normalized.alwaysListening != _settings.alwaysListening;
     _settings = normalized;
     await _settingsService.save(normalized);
     notifyListeners();
@@ -172,6 +242,9 @@ class DisplayController extends ChangeNotifier {
       _client.connect(normalized.wsUri);
     }
     await _voice?.configure(normalized.wakeConfig);
+    if (modeChanged) {
+      await _applyKeepAlive();
+    }
   }
 
   Future<bool> testConnection(HubSettings candidate) {
@@ -308,6 +381,8 @@ class DisplayController extends ChangeNotifier {
       subscription.cancel();
     }
     _watchdog?.cancel();
+    _installer?.progress.removeListener(notifyListeners);
+    unawaited(_keepAlive?.stop());
     _client.dispose();
     _voice?.dispose();
     _level.dispose();

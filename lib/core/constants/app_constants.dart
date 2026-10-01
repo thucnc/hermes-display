@@ -6,6 +6,7 @@ abstract final class HubDefaults {
   static const int slideIntervalSec = 20;
   static const double wakeSensitivity = 0.5;
   static const String wakeKeyword = 'HEY SEN';
+  static const bool alwaysListening = true;
 }
 
 /// Accepted ranges for user-editable settings.
@@ -64,7 +65,13 @@ abstract final class VoiceLevels {
 abstract final class WakeTuning {
   /// Sensitivity 0..1 maps linearly onto this spotter threshold range;
   /// higher sensitivity means a lower threshold.
-  static const double strictThreshold = 0.5;
-  static const double looseThreshold = 0.05;
+  static const double strictThreshold = 0.9;
+  static const double looseThreshold = 0.2;
   static const int numThreads = 1;
+
+  /// Boost for keyword paths during decoding.
+  static const double keywordsScore = 1.5;
+  static const int defaultTrailingBlanks = 3;
+  static const int minTrailingBlanks = 1;
+  static const int maxTrailingBlanks = 5;
 }

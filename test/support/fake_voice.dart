@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:hermes_display/core/constants/app_constants.dart';
 import 'package:hermes_display/services/audio/audio_frame.dart';
 import 'package:hermes_display/services/audio/cue_player.dart';
+import 'package:hermes_display/services/audio/keyword_tokens.dart';
 import 'package:hermes_display/services/audio/mic_source.dart';
 import 'package:hermes_display/services/audio/wake_detector.dart';
 
@@ -74,11 +75,14 @@ class FakeMic implements MicSource {
 /// Fires on any frame whose RMS exceeds [triggerRms], standing in for
 /// "Hey Sen" being spoken.
 class FakeDetector implements WakeDetector {
-  FakeDetector({this.available = true});
+  FakeDetector({this.available = true, this.locate});
 
   static const double triggerRms = 0.5;
 
   bool available;
+
+  /// When set, the model counts as present once this yields non-null.
+  final Future<Object?> Function()? locate;
   final List<WakeConfig> loads = [];
   int resets = 0;
   int fed = 0;
@@ -86,6 +90,10 @@ class FakeDetector implements WakeDetector {
   @override
   Future<bool> load(WakeConfig config) async {
     loads.add(config);
+    final find = locate;
+    if (find != null) {
+      available = await find() != null;
+    }
     return available;
   }
 
@@ -97,6 +105,11 @@ class FakeDetector implements WakeDetector {
 
   @override
   void reset() => resets++;
+
+  @override
+  KeywordCheck check(String keyword) {
+    return available ? KeywordCheck.ok : KeywordCheck.unverified;
+  }
 
   @override
   void dispose() {}

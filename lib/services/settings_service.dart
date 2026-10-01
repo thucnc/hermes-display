@@ -10,6 +10,7 @@ class HubSettings {
     required this.slideIntervalSec,
     required this.wakeSensitivity,
     required this.wakeKeyword,
+    required this.alwaysListening,
   });
 
   static const HubSettings defaults = HubSettings(
@@ -18,6 +19,7 @@ class HubSettings {
     slideIntervalSec: HubDefaults.slideIntervalSec,
     wakeSensitivity: HubDefaults.wakeSensitivity,
     wakeKeyword: HubDefaults.wakeKeyword,
+    alwaysListening: HubDefaults.alwaysListening,
   );
 
   final String host;
@@ -25,6 +27,9 @@ class HubSettings {
   final int slideIntervalSec;
   final double wakeSensitivity;
   final String wakeKeyword;
+
+  /// Keep the wake word running behind a microphone foreground service.
+  final bool alwaysListening;
 
   Uri get wsUri => Uri(scheme: HubDefaults.scheme, host: host, port: port);
 
@@ -44,6 +49,7 @@ class HubSettings {
     int? slideIntervalSec,
     double? wakeSensitivity,
     String? wakeKeyword,
+    bool? alwaysListening,
   }) {
     return HubSettings(
       host: host ?? this.host,
@@ -51,6 +57,7 @@ class HubSettings {
       slideIntervalSec: slideIntervalSec ?? this.slideIntervalSec,
       wakeSensitivity: wakeSensitivity ?? this.wakeSensitivity,
       wakeKeyword: wakeKeyword ?? this.wakeKeyword,
+      alwaysListening: alwaysListening ?? this.alwaysListening,
     );
   }
 
@@ -71,6 +78,7 @@ class HubSettings {
         SettingsLimits.maxSensitivity,
       ),
       wakeKeyword: keyword.isEmpty ? HubDefaults.wakeKeyword : keyword,
+      alwaysListening: alwaysListening,
     );
   }
 }
@@ -81,6 +89,7 @@ abstract final class _PrefKey {
   static const String slideInterval = 'slide_interval_sec';
   static const String wakeSensitivity = 'wake_sensitivity';
   static const String wakeKeyword = 'wake_keyword';
+  static const String alwaysListening = 'always_listening';
 }
 
 class SettingsService {
@@ -104,6 +113,8 @@ class SettingsService {
           fallback.wakeSensitivity,
       wakeKeyword:
           _prefs.getString(_PrefKey.wakeKeyword) ?? fallback.wakeKeyword,
+      alwaysListening:
+          _prefs.getBool(_PrefKey.alwaysListening) ?? fallback.alwaysListening,
     ).normalized();
   }
 
@@ -115,6 +126,7 @@ class SettingsService {
       _prefs.setInt(_PrefKey.slideInterval, value.slideIntervalSec),
       _prefs.setDouble(_PrefKey.wakeSensitivity, value.wakeSensitivity),
       _prefs.setString(_PrefKey.wakeKeyword, value.wakeKeyword),
+      _prefs.setBool(_PrefKey.alwaysListening, value.alwaysListening),
     ]);
   }
 }
