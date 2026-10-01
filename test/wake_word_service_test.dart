@@ -207,6 +207,27 @@ void main() {
     expect(mic.isOpen, isTrue);
   });
 
+  test('default sensitivity detects measured "Hey Sen" speech', () {
+    // Measured offline with the real KWS model: a real voice matched at every
+    // threshold up to 0.25, synthetic voices only up to ~0.15. The default
+    // must therefore stay at or below the measured ceiling.
+    const measuredCeiling = 0.25;
+    final config = WakeConfig(
+      keyword: HubDefaults.wakeKeyword,
+      sensitivity: HubDefaults.wakeSensitivity,
+    );
+    expect(config.threshold, lessThanOrEqualTo(measuredCeiling));
+  });
+
+  test('loosest sensitivity reaches the measured TTS floor', () {
+    const measuredFloor = 0.1;
+    final loosest = WakeConfig(
+      keyword: HubDefaults.wakeKeyword,
+      sensitivity: SettingsLimits.maxSensitivity,
+    );
+    expect(loosest.threshold, lessThanOrEqualTo(measuredFloor));
+  });
+
   test('sensitivity maps onto spotter threshold', () {
     const loose = WakeConfig(keyword: 'X', sensitivity: 1);
     const strict = WakeConfig(keyword: 'X', sensitivity: 0);
