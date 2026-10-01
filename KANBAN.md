@@ -33,14 +33,15 @@ Last Updated: 2026-10-01 14:45
 
 ## In Progress
 
+## Review
+
 - [ ] **KB-001**: Kiến trúc Scaffolding, State Machine, Ambient Slideshow UI & WebSocket Client
   - Priority: Critical
   - Assignee: claude-code (opus-5-5)
-  - Started: 2026-10-01 14:45
-  - Criteria: Clean Architecture, Flutter 3.35, Ambient clock, photo crossfade, state machine, websocket bridge, 0 analyze warnings.
+  - Completed: 2026-10-01 15:05
+  - Commit: `adc6b13`
+  - Tests: 24/24 unit & widget tests passed, 0 analyze warnings.
   - Tags: #flutter #ui #architecture #opus
-
-## Review
 
 ## Done
 
