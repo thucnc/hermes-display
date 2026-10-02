@@ -444,6 +444,7 @@ class DisplayController extends ChangeNotifier {
 
   /// Standalone voice turn: Gemini transcribes [wav] and answers.
   void _askGeminiAudio(GeminiService gemini, Uint8List wav) {
+    debugPrint('_askGeminiAudio called with wav length: ${wav.length}');
     final turn = ++_geminiTurn;
     _turnBrain = BrainMode.gemini;
     transition(DisplayState.thinking);
@@ -468,10 +469,13 @@ class DisplayController extends ChangeNotifier {
     final key = _settings.geminiApiKey;
     final GeminiReply answer;
     try {
+      debugPrint('Calling Gemini API (audio: ${audio != null})');
       answer = audio == null
           ? await gemini.ask(text, key, memoryContext: context)
           : await gemini.askAudio(audio, key, memoryContext: context);
+      debugPrint('Gemini answered: "${answer.text.substring(0, answer.text.length > 50 ? 50 : answer.text.length)}"');
     } on GeminiException catch (error) {
+      debugPrint('Gemini Exception: $error');
       if (_isStale(turn)) {
         return;
       }
@@ -678,14 +682,18 @@ class DisplayController extends ChangeNotifier {
   }
 
   Future<ListenResult> _beginListening(WakeWordService voice) async {
+    debugPrint('_beginListening: playCue');
     await voice.playCue();
     final status = await voice.beginCapture();
+    debugPrint('_beginListening: beginCapture returned $status');
     _setVoiceStatus(status);
     if (status != VoiceStatus.ready) {
       await voice.endCapture();
       return _failureFor(status);
     }
-    if (!wake()) {
+    final woken = wake();
+    debugPrint('_beginListening: wake() returned $woken');
+    if (!woken) {
       await voice.endCapture();
       return ListenResult.offline;
     }
@@ -722,6 +730,7 @@ class DisplayController extends ChangeNotifier {
 
   /// Speech-to-speech turn on Gemini Live; the hub is never involved.
   bool _wakeLive(GeminiLiveService live) {
+    debugPrint('_wakeLive called, live=$live');
     if (!transition(DisplayState.listening)) {
       return false;
     }
@@ -751,9 +760,11 @@ class DisplayController extends ChangeNotifier {
       remembered,
       GeminiService.systemPrompt,
     ].where((part) => part.isNotEmpty).join(_contextGap);
+    debugPrint('Opening Gemini Live for turn $turn with key ${_settings.geminiApiKey.isNotEmpty ? "SET" : "EMPTY"}');
     final result = await live.open(
       LiveSetup(apiKey: owner.$2, instruction: instruction),
     );
+    debugPrint('Gemini Live open result: $result (turn: $turn, stale: ${_isStale(turn)})');
     if (_isStale(turn) || result == LiveOpen.ready) {
       return;
     }
@@ -766,6 +777,7 @@ class DisplayController extends ChangeNotifier {
   }
 
   void _onLive(LiveEvent event) {
+    debugPrint('_onLive: event=${event.runtimeType}, liveTurn=$_liveTurn, state=$_state');
     if (_liveTurn != _LiveTurn.streaming) {
       return;
     }
@@ -1079,6 +1091,7 @@ class DisplayController extends ChangeNotifier {
   }
 
   void _onCaptureDone(CaptureEnd reason) {
+    debugPrint('_onCaptureDone: reason=$reason, state=$_state, liveTurn=$_liveTurn, capturePcm=${_capturePcm.length}');
     if (_state != DisplayState.listening) {
       return;
     }
@@ -1099,6 +1112,7 @@ class DisplayController extends ChangeNotifier {
   /// Hub transcribes when it heard the turn; otherwise Gemini hears the
   /// WAV itself.
   void _endCapture() {
+    debugPrint('_endCapture called: liveTurn=$_liveTurn, capturePcm=${_capturePcm.length}, gemini=$_gemini');
     if (_liveTurn == _LiveTurn.streaming) {
       _live?.endAudio();
       transition(DisplayState.thinking);
