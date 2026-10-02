@@ -336,12 +336,14 @@ class WakeWordService {
   }
 
   void _capture(AudioFrame frame) {
+    debugPrint('_capture frame: rms=${frame.rms}');
     final level = (frame.rms * VoiceLevels.meterGain).clamp(0.0, 1.0);
     _emit(SpeechAudio(frame.pcm, level));
     final end = _endpointer.feed(frame);
     if (end == null) {
       return;
     }
+    debugPrint('_capture ended with: $end');
     _rearm();
     _emit(CaptureDone(end));
     unawaited(_sync());

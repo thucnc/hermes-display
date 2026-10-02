@@ -239,6 +239,7 @@ final class GeminiLiveService {
       return;
     }
     final json = _decode(raw);
+    debugPrint('Gemini Live WS incoming message: ${raw is List<int> ? utf8.decode(raw, allowMalformed: true) : raw}');
     if (json == null) {
       return;
     }

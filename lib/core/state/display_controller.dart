@@ -784,9 +784,11 @@ class DisplayController extends ChangeNotifier {
     _armWatchdog(_state);
     switch (event) {
       case LiveHeard(:final text):
+        debugPrint('Gemini LiveHeard user speech: "$text"');
         _transcript = '$_transcript$text';
         notifyListeners();
       case LiveSaid(:final text):
+        debugPrint('Gemini LiveSaid chunk: "$text"');
         _liveAnswering();
         _reply = '$_reply$text';
         notifyListeners();
@@ -1047,6 +1049,7 @@ class DisplayController extends ChangeNotifier {
   }
 
   void _streamAudio(Uint8List pcm) {
+    debugPrint('_streamAudio: pcm bytes=${pcm.length}, liveTurn=$_liveTurn');
     switch (_liveTurn) {
       case _LiveTurn.streaming:
         _live?.sendAudio(pcm);
