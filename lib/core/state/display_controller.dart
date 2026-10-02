@@ -519,6 +519,7 @@ class DisplayController extends ChangeNotifier {
   ) {
     final recap = _session?.skill;
     return [
+      member.pronounRule,
       memory,
       ?skill?.instruction(member),
       if (skill == null) _registry.instructionFor(text, member, DateTime.now()),
@@ -745,6 +746,8 @@ class DisplayController extends ChangeNotifier {
       return;
     }
     final instruction = [
+      member.pronounRule,
+      'Tuyệt đối KHÔNG tự động nói hoặc chào khi mới mở kết nối. Bạn chỉ được phép trả lời khi người dùng đã hỏi hoặc nói xong.',
       remembered,
       GeminiService.systemPrompt,
     ].where((part) => part.isNotEmpty).join(_contextGap);

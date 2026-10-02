@@ -73,7 +73,7 @@ void main() {
       controller.sendText('xin chào');
       async.flushMicrotasks();
       expect(memory.asked, ['be']);
-      expect(gemini.contexts.single, memo);
+      expect(gemini.contexts.single, '${MemberProfile.be.pronounRule}\n\n$memo');
       controller.dispose();
     });
   });
@@ -83,7 +83,10 @@ void main() {
       final controller = build();
       controller.sendText('đố vui đi');
       async.flushMicrotasks();
-      expect(gemini.contexts.single, startsWith('$memo\n\n'));
+      expect(
+        gemini.contexts.single,
+        startsWith('${MemberProfile.thuc.pronounRule}\n\n$memo\n\n'),
+      );
       expect(gemini.contexts.single, contains('"options"'));
 
       gemini.answer(quiz);
@@ -147,7 +150,7 @@ void main() {
       expect(controller.rich, isNull);
       controller.sendText('thời tiết');
       async.flushMicrotasks();
-      expect(gemini.contexts.last, memo);
+      expect(gemini.contexts.last, '${MemberProfile.thuc.pronounRule}\n\n$memo');
       controller.dispose();
     });
   });
@@ -177,7 +180,7 @@ void main() {
       controller.dismissRich();
       controller.sendText('cảm ơn');
       async.flushMicrotasks();
-      expect(gemini.contexts.last, memo);
+      expect(gemini.contexts.last, '${MemberProfile.me.pronounRule}\n\n$memo');
       controller.dispose();
     });
   });

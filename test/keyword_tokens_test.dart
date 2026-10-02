@@ -101,6 +101,8 @@ void main() {
         '▁HE Y ▁SE N @HEY_SEN',
         '▁HA Y ▁SE N @HEY_SEN',
         '▁HE ▁SE N @HEY_SEN',
+        '▁E ▁SE N @HEY_SEN',
+        '▁HA ▁SE N @HEY_SEN',
       ]);
     });
 

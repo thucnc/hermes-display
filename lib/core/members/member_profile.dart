@@ -71,4 +71,17 @@ class MemberProfile {
     }
     return thuc;
   }
+
+  /// Addressing rules based on family member.
+  String get pronounRule {
+    return switch (id) {
+      MemberId.thuc =>
+        'XƯNG HÔ: Bạn đang nói chuyện với Bố Thức. Hãy xưng là "em" và gọi người dùng là "anh" (xưng hô em - anh). Tuyệt đối không xưng con hay cháu.',
+      MemberId.me =>
+        'XƯNG HÔ: Bạn đang nói chuyện với Mẹ. Hãy xưng là "em" và gọi người dùng là "chị" (xưng hô em - chị). Tuyệt đối không xưng con hay cháu.',
+      MemberId.be =>
+        'XƯNG HÔ: Bạn đang nói chuyện với Bé. Hãy xưng là "mình" và gọi bé là "bạn" (xưng hô mình - bạn) như bạn thân đồng trang lứa.',
+      _ => 'XƯNG HÔ: Hãy xưng là "em" và gọi người dùng lịch sự, thân thiện.',
+    };
+  }
 }

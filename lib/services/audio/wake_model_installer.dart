@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
 
 /// One pinned model file: fetched from `<baseUri>/<fileName>`.
@@ -237,12 +238,15 @@ class WakeModelInstaller {
     await _deleteQuietly(staging);
     await staging.create(recursive: true);
     var received = 0;
-    for (final artifact in _spec.artifacts) {
-      final file = File('${staging.path}/${artifact.fileName}');
-      await _download(artifact, file, (bytes) {
-        received += bytes;
-        _report(received);
-      });
+    final fromAssets = await _copyFromAssets(staging);
+    if (!fromAssets) {
+      for (final artifact in _spec.artifacts) {
+        final file = File('${staging.path}/${artifact.fileName}');
+        await _download(artifact, file, (bytes) {
+          received += bytes;
+          _report(received);
+        });
+      }
     }
     _progress.value = InstallProgress(
       InstallPhase.verifying,
@@ -263,6 +267,22 @@ class WakeModelInstaller {
     _verified = model;
     _progress.value = const InstallProgress(InstallPhase.ready);
     return model;
+  }
+
+  Future<bool> _copyFromAssets(Directory staging) async {
+    try {
+      for (final artifact in _spec.artifacts) {
+        final data = await rootBundle.load('assets/kws/${artifact.fileName}');
+        final file = File('${staging.path}/${artifact.fileName}');
+        await file.writeAsBytes(
+          data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+          flush: true,
+        );
+      }
+      return true;
+    } on Object {
+      return false;
+    }
   }
 
   void _report(int received) {
