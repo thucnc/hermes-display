@@ -4,10 +4,11 @@ import 'package:crypto/crypto.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../core/members/member_profile.dart';
+import '../core/pack/sen_pack.dart';
 import '../core/skills/sen_skill.dart';
 
 /// Kind of remembered fact; [name] is the stored value.
-enum FactCategory { preference, habit }
+enum FactCategory { preference, habit, goal, taboo }
 
 abstract final class SenMemoryLimits {
   /// Keeps the injected block well under 300 tokens.
@@ -29,6 +30,10 @@ abstract interface class SenMemoryService {
     SkillKind skill,
     SkillOutcome outcome,
   );
+
+  /// Replaces profiles and pack facts with the knowledge pack's; facts
+  /// learned in conversation are kept.
+  Future<void> applyMembers(List<MemberPack> members);
 }
 
 abstract final class _Table {
@@ -52,7 +57,11 @@ abstract final class _Col {
   static const String data = 'data';
   static const String updatedAt = 'updated_at';
   static const String plays = 'plays';
+  static const String source = 'source';
 }
+
+/// Where a fact came from; [name] is the stored value, null for chat.
+enum _Source { pack }
 
 abstract final class _Prompt {
   static const String talkingTo = 'Đang nói chuyện với:';
@@ -75,7 +84,8 @@ final class SqfliteSenMemoryService implements SenMemoryService {
        _clock = clock ?? DateTime.now;
 
   static const String fileName = 'sen_memory.db';
-  static const int _schemaVersion = 1;
+  static const int _schemaVersion = 2;
+  static const int _sourceVersion = 2;
 
   /// First memories of Bố Thức.
   static const List<(String, FactCategory, String)> _seeds = [
@@ -101,6 +111,7 @@ final class SqfliteSenMemoryService implements SenMemoryService {
       options: OpenDatabaseOptions(
         version: _schemaVersion,
         onCreate: _create,
+        onUpgrade: _upgrade,
         onOpen: _syncMembers,
       ),
     );
@@ -120,7 +131,7 @@ final class SqfliteSenMemoryService implements SenMemoryService {
     await db.execute(
       'CREATE TABLE ${_Table.facts}(${_Col.id} TEXT PRIMARY KEY, '
       '${_Col.memberId} TEXT, ${_Col.category} TEXT, ${_Col.fact} TEXT, '
-      '${_Col.createdAt} INTEGER)',
+      '${_Col.createdAt} INTEGER, ${_Col.source} TEXT)',
     );
     await db.execute(
       'CREATE TABLE ${_Table.progress}(${_Col.id} TEXT PRIMARY KEY, '
@@ -129,6 +140,14 @@ final class SqfliteSenMemoryService implements SenMemoryService {
     );
     for (final (member, category, fact) in _seeds) {
       await _insertFact(db, member, category, fact);
+    }
+  }
+
+  Future<void> _upgrade(Database db, int from, int to) async {
+    if (from < _sourceVersion) {
+      await db.execute(
+        'ALTER TABLE ${_Table.facts} ADD COLUMN ${_Col.source} TEXT',
+      );
     }
   }
 
@@ -163,8 +182,9 @@ final class SqfliteSenMemoryService implements SenMemoryService {
     DatabaseExecutor db,
     String memberId,
     FactCategory category,
-    String fact,
-  ) {
+    String fact, {
+    _Source? source,
+  }) {
     final key = utf8.encode('$memberId|${fact.toLowerCase()}');
     return db.insert(_Table.facts, {
       _Col.id: sha1.convert(key).toString(),
@@ -172,7 +192,40 @@ final class SqfliteSenMemoryService implements SenMemoryService {
       _Col.category: category.name,
       _Col.fact: fact,
       _Col.createdAt: _clock().millisecondsSinceEpoch,
+      _Col.source: source?.name,
     }, conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
+  @override
+  Future<void> applyMembers(List<MemberPack> members) async {
+    final db = await _open;
+    await db.transaction((txn) async {
+      await txn.delete(
+        _Table.facts,
+        where: '${_Col.source} = ?',
+        whereArgs: [_Source.pack.name],
+      );
+      for (final member in members) {
+        await _applyMember(txn, member);
+      }
+    });
+  }
+
+  Future<void> _applyMember(Transaction txn, MemberPack member) async {
+    await txn.insert(_Table.members, {
+      _Col.id: member.id,
+      _Col.name: member.name,
+      _Col.role: member.roleLabel,
+      _Col.englishLevel: member.englishLevel.name,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    final facts = [
+      for (final fact in member.facts) (FactCategory.preference, fact),
+      for (final goal in member.goals) (FactCategory.goal, goal),
+      for (final taboo in member.taboos) (FactCategory.taboo, taboo),
+    ];
+    for (final (category, fact) in facts) {
+      await _insertFact(txn, member.id, category, fact, source: _Source.pack);
+    }
   }
 
   @override

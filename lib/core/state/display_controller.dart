@@ -14,12 +14,14 @@ import '../../services/night_dimmer.dart';
 import '../../services/protocol/hermes_message.dart';
 import '../../services/screen/screen_control.dart';
 import '../../services/sen_memory_service.dart';
+import '../../services/sen_pack_service.dart';
 import '../../services/settings_service.dart';
 import '../../services/wake_word_service.dart';
 import '../constants/app_constants.dart';
 import '../media/rich_content.dart';
 import '../media/spoken_summary.dart';
 import '../members/member_profile.dart';
+import '../pack/sen_pack_registry.dart';
 import '../skills/sen_skill.dart';
 import '../skills/skill_content.dart';
 import 'brain_mode.dart';
@@ -46,6 +48,7 @@ class DisplayController extends ChangeNotifier {
     HermesSyncService? sync,
     HubTtsService? hubTts,
     SenMemoryService? memory,
+    SenPackService? pack,
   }) : _settingsService = settingsService,
        _client = client,
        _voice = voice,
@@ -58,6 +61,7 @@ class DisplayController extends ChangeNotifier {
        _sync = sync,
        _hubTts = hubTts,
        _memory = memory,
+       _pack = pack,
        _settings = settingsService.load();
 
   final SettingsService _settingsService;
@@ -93,6 +97,10 @@ class DisplayController extends ChangeNotifier {
 
   /// Null: Gemini gets no member memory and skill scores are not kept.
   final SenMemoryService? _memory;
+
+  /// Null: built-in family and skills only.
+  final SenPackService? _pack;
+  final SenPackRegistry _registry = SenPackRegistry();
   static final ValueNotifier<bool> _neverDimmed = ValueNotifier<bool>(false);
   final List<StreamSubscription<Object?>> _subscriptions = [];
   final ValueNotifier<double> _level = ValueNotifier<double>(0);
@@ -136,7 +144,10 @@ class DisplayController extends ChangeNotifier {
   /// Chosen option of the shown quiz, null until answered.
   int? get quizPick => _quizPick;
 
-  MemberProfile get member => MemberProfile.byId(_settings.activeMemberId);
+  MemberProfile get member => _registry.byId(_settings.activeMemberId);
+
+  /// Family shown in the switcher: the knowledge pack's, else built-in.
+  List<MemberProfile> get members => _registry.members;
   VoiceStatus? get voiceStatus => _voiceStatus;
 
   /// Outcome of the last lock-screen wake/release call.
@@ -181,7 +192,44 @@ class DisplayController extends ChangeNotifier {
     _client.connect(_settings.wsUri);
     _dimmer?.start(_settings.dim);
     _startVoice();
+    unawaited(_bootPack());
   }
+
+  /// Cached pack first so Sen works offline, then a refresh when a URL
+  /// is set.
+  Future<void> _bootPack() async {
+    final service = _pack;
+    if (service == null) {
+      return;
+    }
+    final cached = await service.loadCached();
+    if (cached != null && !_disposed) {
+      _registry.load(cached);
+      notifyListeners();
+    }
+    final url = _settings.knowledgePackUrl;
+    if (url.isEmpty || _disposed) {
+      return;
+    }
+    await syncPack(url);
+  }
+
+  /// Settings "Sync now": downloads and applies the pack at [url].
+  Future<PackSyncResult> syncPack(String url) async {
+    final service = _pack;
+    if (service == null) {
+      return const PackSyncResult(PackSync.failed);
+    }
+    final result = await service.fetchAndApply(url);
+    final pack = result.pack;
+    if (result.status == PackSync.updated && pack != null && !_disposed) {
+      _registry.load(pack);
+      notifyListeners();
+    }
+    return result;
+  }
+
+  bool isPackUrl(String url) => SenPackService.parseUrl(url) != null;
 
   void _startVoice() {
     final voice = _voice;
@@ -300,7 +348,7 @@ class DisplayController extends ChangeNotifier {
       answer = await gemini.ask(
         text,
         _settings.geminiApiKey,
-        memoryContext: _contextFor(remembered, skill, member),
+        memoryContext: _contextFor(remembered, skill, member, text),
       );
     } on GeminiException catch (error) {
       if (_isStale(turn)) {
@@ -336,12 +384,19 @@ class DisplayController extends ChangeNotifier {
     return kind == null ? null : SenSkill.of(kind);
   }
 
-  /// Memory first, then the skill and what was said in it last turn.
-  String _contextFor(String memory, SenSkill? skill, MemberProfile member) {
+  /// Memory first, then the skill and what was said in it last turn; a
+  /// knowledge pack skill or ritual when no built-in skill applies.
+  String _contextFor(
+    String memory,
+    SenSkill? skill,
+    MemberProfile member,
+    String text,
+  ) {
     final recap = _session?.skill;
     return [
       memory,
       ?skill?.instruction(member),
+      if (skill == null) _registry.instructionFor(text, member, DateTime.now()),
       if (recap != null && recap.kind == skill?.kind) recap.recap,
     ].where((part) => part.isNotEmpty).join(_contextGap);
   }
@@ -403,7 +458,7 @@ class DisplayController extends ChangeNotifier {
 
   /// Avatar tap: who Sen is talking to from the next turn on.
   void selectMember(String id) {
-    if (id == _settings.activeMemberId || !MemberProfile.isKnown(id)) {
+    if (id == _settings.activeMemberId || !_registry.has(id)) {
       return;
     }
     _settings = _settings.copyWith(activeMemberId: id);

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../core/members/member_profile.dart';
 import '../../core/state/display_controller.dart';
 import '../../core/state/display_state.dart';
 import '../../services/wake_word_service.dart';
@@ -89,7 +88,7 @@ class AmbientScreen extends StatelessWidget {
                   Align(
                     alignment: Alignment.topCenter,
                     child: MemberSwitcher(
-                      members: MemberProfile.family,
+                      members: controller.members,
                       activeId: controller.member.id,
                       onSelect: controller.selectMember,
                     ),

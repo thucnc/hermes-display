@@ -108,8 +108,26 @@ void main() {
     expect(service.load().activeMemberId, 'be');
   });
 
-  test('unknown active member falls back to the default', () {
-    final settings = HubSettings.defaults.copyWith(activeMemberId: 'ghost');
-    expect(settings.normalized().activeMemberId, HubDefaults.activeMemberId);
+  test('blank active member falls back; pack ids are kept', () {
+    final blank = HubSettings.defaults.copyWith(activeMemberId: '  ');
+    expect(blank.normalized().activeMemberId, HubDefaults.activeMemberId);
+    final pack = HubSettings.defaults.copyWith(activeMemberId: 'ong');
+    expect(pack.normalized().activeMemberId, 'ong');
+  });
+
+  test('knowledge pack URL defaults empty and round-trips trimmed', () async {
+    SharedPreferences.setMockInitialValues({});
+    final service = await SettingsService.create();
+    expect(service.load().knowledgePackUrl, isEmpty);
+
+    await service.save(
+      HubSettings.defaults.copyWith(
+        knowledgePackUrl: ' https://x.pages.dev/sen-pack.json ',
+      ),
+    );
+    expect(
+      service.load().knowledgePackUrl,
+      'https://x.pages.dev/sen-pack.json',
+    );
   });
 }

@@ -18,6 +18,7 @@ class HubSettings {
     this.geminiApiKey = HubDefaults.geminiApiKey,
     this.brainMode = HubDefaults.brainMode,
     this.activeMemberId = HubDefaults.activeMemberId,
+    this.knowledgePackUrl = HubDefaults.knowledgePackUrl,
   });
 
   static const HubSettings defaults = HubSettings(
@@ -31,6 +32,7 @@ class HubSettings {
     geminiApiKey: HubDefaults.geminiApiKey,
     brainMode: HubDefaults.brainMode,
     activeMemberId: HubDefaults.activeMemberId,
+    knowledgePackUrl: HubDefaults.knowledgePackUrl,
   );
 
   final String host;
@@ -51,8 +53,12 @@ class HubSettings {
   /// Preferred brain; see [activeBrain] for the one actually used.
   final BrainMode brainMode;
 
-  /// Family member Sen is talking to; see [MemberProfile.family].
+  /// Family member Sen is talking to; the knowledge pack may add ids
+  /// beyond [MemberProfile.family].
   final String activeMemberId;
+
+  /// Where `sen-pack.json` is downloaded from; empty means none.
+  final String knowledgePackUrl;
 
   /// Gemini only when chosen and a key exists, otherwise the hub.
   BrainMode get activeBrain {
@@ -103,6 +109,7 @@ class HubSettings {
     String? geminiApiKey,
     BrainMode? brainMode,
     String? activeMemberId,
+    String? knowledgePackUrl,
   }) {
     return HubSettings(
       host: host ?? this.host,
@@ -115,14 +122,17 @@ class HubSettings {
       geminiApiKey: geminiApiKey ?? this.geminiApiKey,
       brainMode: brainMode ?? this.brainMode,
       activeMemberId: activeMemberId ?? this.activeMemberId,
+      knowledgePackUrl: knowledgePackUrl ?? this.knowledgePackUrl,
     );
   }
 
-  /// Clamps every field into its legal range; blank host/keyword fall
-  /// back. Keywords are upper-cased to match the spotter's vocabulary.
+  /// Clamps every field into its legal range; blank host/keyword/member
+  /// fall back. Keywords are upper-cased to match the spotter's
+  /// vocabulary.
   HubSettings normalized() {
     final trimmed = host.trim();
     final keyword = wakeKeyword.trim().toUpperCase();
+    final memberId = activeMemberId.trim();
     return HubSettings(
       host: trimmed.isEmpty ? HubDefaults.host : trimmed,
       port: port.clamp(SettingsLimits.minPort, SettingsLimits.maxPort),
@@ -139,9 +149,8 @@ class HubSettings {
       dim: dim.normalized(),
       geminiApiKey: geminiApiKey.trim(),
       brainMode: brainMode,
-      activeMemberId: MemberProfile.isKnown(activeMemberId)
-          ? activeMemberId
-          : HubDefaults.activeMemberId,
+      activeMemberId: memberId.isEmpty ? HubDefaults.activeMemberId : memberId,
+      knowledgePackUrl: knowledgePackUrl.trim(),
     );
   }
 }
@@ -160,6 +169,7 @@ abstract final class _PrefKey {
   static const String geminiApiKey = 'gemini_api_key';
   static const String brainMode = 'brain_mode';
   static const String activeMember = 'active_member_id';
+  static const String packUrl = 'knowledge_pack_url';
 }
 
 class SettingsService {
@@ -193,6 +203,8 @@ class SettingsService {
           fallback.brainMode,
       activeMemberId:
           _prefs.getString(_PrefKey.activeMember) ?? fallback.activeMemberId,
+      knowledgePackUrl:
+          _prefs.getString(_PrefKey.packUrl) ?? fallback.knowledgePackUrl,
     ).normalized();
   }
 
@@ -221,6 +233,7 @@ class SettingsService {
       _prefs.setString(_PrefKey.geminiApiKey, value.geminiApiKey),
       _prefs.setString(_PrefKey.brainMode, value.brainMode.name),
       _prefs.setString(_PrefKey.activeMember, value.activeMemberId),
+      _prefs.setString(_PrefKey.packUrl, value.knowledgePackUrl),
     ]);
   }
 }

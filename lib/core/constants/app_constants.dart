@@ -15,6 +15,9 @@ abstract final class HubDefaults {
   /// Effective only once a Gemini key is set; the hub otherwise.
   static const BrainMode brainMode = BrainMode.gemini;
   static const String activeMemberId = MemberProfile.defaultId;
+
+  /// Empty: no remote knowledge pack, built-in family and skills.
+  static const String knowledgePackUrl = '';
 }
 
 /// Accepted ranges for user-editable settings.
@@ -121,6 +124,12 @@ abstract final class SyncDefaults {
   static const String scheme = 'http';
   static const String savePath = '/save';
   static const Duration timeout = Duration(seconds: 10);
+}
+
+/// Remote `sen-pack.json` download (GitHub Raw, Gist, Pages, hub...).
+abstract final class SenPackDefaults {
+  static const Duration timeout = Duration(seconds: 10);
+  static const List<String> schemes = ['http', 'https'];
 }
 
 /// Hub HTTP endpoint that speaks Gemini answers; shares the hub host:port.

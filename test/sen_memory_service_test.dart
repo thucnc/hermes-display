@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_display/core/pack/sen_pack.dart';
 import 'package:hermes_display/core/skills/sen_skill.dart';
 import 'package:hermes_display/services/sen_memory_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -74,5 +77,93 @@ void main() {
     expect(prompt.length, lessThanOrEqualTo(SenMemoryLimits.maxPromptChars));
     expect(prompt, contains('Sở thích số 39'));
     expect(prompt, isNot(contains('Sở thích số 0 ')));
+  });
+
+  group('knowledge pack members', () {
+    const na = MemberPack(
+      id: 'be',
+      name: 'Bé Na',
+      role: 'child',
+      facts: ['Thích khủng long tím'],
+      goals: ['Tự dọn đồ chơi'],
+      taboos: ['Không hứa mua đồ chơi'],
+    );
+
+    test('profiles and facts reach the prompt', () async {
+      await memory.applyMembers(const [
+        na,
+        MemberPack(id: 'ong', name: 'Ông Nội', role: 'grandfather'),
+      ]);
+      final prompt = await memory.buildMemoryPrompt('be');
+      expect(prompt, startsWith('Đang nói chuyện với: Bé Na (Con).'));
+      expect(prompt, contains('Thích khủng long tím'));
+      expect(prompt, contains('Tự dọn đồ chơi'));
+      expect(prompt, contains('Không hứa mua đồ chơi'));
+      expect(
+        await memory.buildMemoryPrompt('ong'),
+        startsWith('Đang nói chuyện với: Ông Nội (Ông).'),
+      );
+    });
+
+    test('a new pack replaces pack facts, chat facts stay', () async {
+      await memory.addFact('be', FactCategory.habit, 'Ngủ trưa lúc 12 giờ');
+      await memory.applyMembers(const [na]);
+      await memory.applyMembers(const [
+        MemberPack(id: 'be', name: 'Bé Na', facts: ['Thích mèo']),
+      ]);
+      final prompt = await memory.buildMemoryPrompt('be');
+      expect(prompt, contains('Thích mèo'));
+      expect(prompt, contains('Ngủ trưa lúc 12 giờ'));
+      expect(prompt, isNot(contains('khủng long')));
+      expect(prompt, isNot(contains('Tự dọn đồ chơi')));
+    });
+  });
+
+  test('upgrades a version 1 database and keeps its facts', () async {
+    final dir = await Directory.systemTemp.createTemp('sen_memory');
+    final path = '${dir.path}/v1.db';
+    final old = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (db, _) async {
+          await db.execute(
+            'CREATE TABLE members(id TEXT PRIMARY KEY, name TEXT, role TEXT, '
+            'english_level TEXT)',
+          );
+          await db.execute(
+            'CREATE TABLE facts(id TEXT PRIMARY KEY, member_id TEXT, '
+            'category TEXT, fact TEXT, created_at INTEGER)',
+          );
+          await db.execute(
+            'CREATE TABLE skill_progress(id TEXT PRIMARY KEY, member_id TEXT, '
+            'skill TEXT, score INTEGER, level TEXT, data TEXT, '
+            'updated_at INTEGER)',
+          );
+          await db.insert('facts', {
+            'id': 'x',
+            'member_id': 'thuc',
+            'category': 'habit',
+            'fact': 'Chạy bộ buổi sáng',
+            'created_at': 1,
+          });
+        },
+      ),
+    );
+    await old.close();
+
+    final upgraded = SqfliteSenMemoryService(
+      path: path,
+      factory: databaseFactoryFfi,
+      clock: () => now,
+    );
+    await upgraded.applyMembers(const [
+      MemberPack(id: 'thuc', name: 'Bố Thức', facts: ['Thích AI']),
+    ]);
+    final prompt = await upgraded.buildMemoryPrompt('thuc');
+    expect(prompt, contains('Chạy bộ buổi sáng'));
+    expect(prompt, contains('Thích AI'));
+    await upgraded.close();
+    await dir.delete(recursive: true);
   });
 }

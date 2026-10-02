@@ -61,6 +61,20 @@ abstract final class AppStrings {
   static const String geminiKey = 'Gemini API key';
   static const String showKey = 'Hiện key';
   static const String hideKey = 'Ẩn key';
+  static const String packUrl = 'URL Gói Tri Thức (Knowledge Pack URL)';
+  static const String packUrlHint =
+      'sen-pack.json trên GitHub Raw, Gist, Pages hoặc Hub; để trống nếu '
+      'không dùng';
+  static const String invalidPackUrl = 'Nhập URL http(s) hợp lệ';
+  static const String syncNow = 'Đồng bộ ngay';
+  static const String syncing = 'Đang đồng bộ…';
+  static const String syncUpdated = 'Đã cập nhật';
+  static const String syncMembers = 'thành viên';
+  static const String syncSkills = 'kỹ năng';
+  static const String syncRituals = 'nghi thức';
+  static const String syncUnchanged = 'Gói tri thức đã mới nhất';
+  static const String syncInvalid = 'Gói tri thức không hợp lệ';
+  static const String syncFailed = 'Không tải được gói tri thức';
 
   static const String playVideo = 'Phát Video';
   static const String videoFallbackTitle = 'Video YouTube';

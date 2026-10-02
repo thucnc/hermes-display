@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/dimming/dim_schedule.dart';
+import '../../core/pack/sen_pack.dart';
 import '../../core/state/brain_mode.dart';
 import '../../core/state/display_controller.dart';
 import '../../services/audio/wake_model_installer.dart';
+import '../../services/sen_pack_service.dart';
 import '../../services/settings_service.dart';
 import '../../services/wake_word_service.dart';
 import '../strings.dart';
 import '../theme/app_theme.dart';
 
 enum _ProbeState { idle, testing, success, failure }
+
+enum _SyncState { idle, syncing, updated, unchanged, invalid, failed }
 
 Future<void> showSettingsSheet(
   BuildContext context,
@@ -42,6 +46,8 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   static const int _sensitivityDivisions = 10;
   static const int _percentScale = 100;
   static const int _hourDigits = 2;
+  static const double _spinnerSize = 18;
+  static const double _spinnerStroke = 2;
 
   /// One slider step per percent.
   static final int _dimDivisions =
@@ -61,6 +67,12 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   late final TextEditingController _geminiKey = TextEditingController(
     text: _initial.geminiApiKey,
   );
+  late final TextEditingController _packUrl = TextEditingController(
+    text: _initial.knowledgePackUrl,
+  );
+  final GlobalKey<FormFieldState<String>> _packField = GlobalKey();
+  _SyncState _sync = _SyncState.idle;
+  SenPack? _synced;
   late BrainMode _brain = _initial.brainMode;
   bool _keyVisible = false;
   late double _slideSec = _initial.slideIntervalSec.toDouble();
@@ -75,6 +87,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     _port.dispose();
     _keyword.dispose();
     _geminiKey.dispose();
+    _packUrl.dispose();
     super.dispose();
   }
 
@@ -92,6 +105,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
       dim: _dim,
       geminiApiKey: _geminiKey.text,
       brainMode: _brain,
+      knowledgePackUrl: _packUrl.text,
     );
   }
 
@@ -106,6 +120,28 @@ class _SettingsSheetState extends State<_SettingsSheet> {
       return;
     }
     setState(() => _probe = ok ? _ProbeState.success : _ProbeState.failure);
+  }
+
+  Future<void> _syncPack() async {
+    final url = _packUrl.text.trim();
+    if (url.isEmpty || !(_packField.currentState?.validate() ?? false)) {
+      setState(() => _sync = _SyncState.invalid);
+      return;
+    }
+    setState(() => _sync = _SyncState.syncing);
+    final result = await widget.controller.syncPack(url);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _synced = result.pack;
+      _sync = switch (result.status) {
+        PackSync.updated => _SyncState.updated,
+        PackSync.unchanged => _SyncState.unchanged,
+        PackSync.invalid => _SyncState.invalid,
+        PackSync.failed => _SyncState.failed,
+      };
+    });
   }
 
   Future<void> _save() async {
@@ -126,6 +162,14 @@ class _SettingsSheetState extends State<_SettingsSheet> {
       return AppStrings.invalidHost;
     }
     return null;
+  }
+
+  String? _validatePackUrl(String? value) {
+    final url = value?.trim() ?? '';
+    if (url.isEmpty || widget.controller.isPackUrl(url)) {
+      return null;
+    }
+    return AppStrings.invalidPackUrl;
   }
 
   String? _validateKeyword(String? value) {
@@ -176,6 +220,8 @@ class _SettingsSheetState extends State<_SettingsSheet> {
               _probeRow(),
               const SizedBox(height: Spacing.lg),
               ..._brainSection(),
+              const SizedBox(height: Spacing.lg),
+              ..._packSection(),
               const SizedBox(height: Spacing.lg),
               _sliderTile(
                 label: AppStrings.slideInterval,
@@ -288,6 +334,78 @@ class _SettingsSheetState extends State<_SettingsSheet> {
         ),
       ),
     ];
+  }
+
+  List<Widget> _packSection() {
+    final syncing = _sync == _SyncState.syncing;
+    return [
+      TextFormField(
+        key: _packField,
+        controller: _packUrl,
+        validator: _validatePackUrl,
+        keyboardType: TextInputType.url,
+        autocorrect: false,
+        enableSuggestions: false,
+        decoration: const InputDecoration(
+          labelText: AppStrings.packUrl,
+          helperText: AppStrings.packUrlHint,
+          border: OutlineInputBorder(),
+        ),
+      ),
+      const SizedBox(height: Spacing.md),
+      Row(
+        children: [
+          OutlinedButton.icon(
+            onPressed: syncing ? null : _syncPack,
+            icon: syncing
+                ? const SizedBox.square(
+                    dimension: _spinnerSize,
+                    child: CircularProgressIndicator(
+                      strokeWidth: _spinnerStroke,
+                    ),
+                  )
+                : const Icon(Icons.cloud_sync_rounded),
+            label: const Text(AppStrings.syncNow),
+          ),
+          const SizedBox(width: Spacing.md),
+          Expanded(child: _syncLabel()),
+        ],
+      ),
+    ];
+  }
+
+  Widget _syncLabel() {
+    return switch (_sync) {
+      _SyncState.idle => const SizedBox.shrink(),
+      _SyncState.syncing => const Text(AppStrings.syncing),
+      _SyncState.updated => Text(
+        _syncSummary(_synced),
+        style: const TextStyle(color: AppPalette.online),
+      ),
+      _SyncState.unchanged => const Text(
+        AppStrings.syncUnchanged,
+        style: TextStyle(color: AppPalette.online),
+      ),
+      _SyncState.invalid => const Text(
+        AppStrings.syncInvalid,
+        style: TextStyle(color: AppPalette.offline),
+      ),
+      _SyncState.failed => const Text(
+        AppStrings.syncFailed,
+        style: TextStyle(color: AppPalette.offline),
+      ),
+    };
+  }
+
+  static String _syncSummary(SenPack? pack) {
+    if (pack == null) {
+      return AppStrings.syncUpdated;
+    }
+    final version = pack.version.isEmpty ? '' : ' (${pack.version})';
+    return '${AppStrings.syncUpdated}: ${pack.members.length} '
+        '${AppStrings.syncMembers}, ${pack.skills.length} '
+        '${AppStrings.syncSkills}, ${pack.rituals.length} '
+        '${AppStrings.syncRituals}$version';
   }
 
   List<Widget> _dimSection() {

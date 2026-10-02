@@ -28,6 +28,18 @@ Last Updated: 2026-10-02
 
 ## Review
 
+- [ ] **KB-013**: Dynamic Sen Knowledge Pack qua URL công khai (Remote Sync)
+  - Priority: High
+  - Assignee: claude-code (opus-5-5)
+  - Completed: 2026-10-02
+  - Tests: 257/257 (215 cũ + 42 mới), 0 analyze issues. Hub/exporter: 32/32 + 7/7 Python tests.
+  - Pack: `SenPack` (members/skills/rituals, camelCase hoặc snake_case, bỏ mục lỗi, từ chối pack rỗng), `SenPackRegistry` (thành viên động, skill/ritual theo trigger, `{{member.*}}`).
+  - Service: `SenPackService.fetchAndApply` (timeout 10s, ETag/304, hash), cache SharedPreferences cho offline boot, upsert members + facts vào SQLite (schema v2, cột `source`).
+  - Settings: `knowledgePackUrl` + nút "Đồng bộ ngay" có trạng thái; boot dùng cache rồi tự refresh.
+  - Hub: `tools/export_sen_pack.py` (Sen/ → sen-pack.json) và `GET /api/sen/pack` trên `display_hub.py`.
+  - Unverified: trên MatePad thật; avatar trong pack chưa hiển thị (vẫn dùng chữ cái).
+  - Tags: #sen-os #knowledge-pack #remote-sync #offline
+
 - [ ] **KB-011**: Sen OS — Member Profiles (Avatar Switcher), SQLite Memory Engine (Mem0-lite), & Pluggable Skills (Quiz & English Roleplay)
   - Priority: Critical
   - Assignee: claude-code (opus-5-5)

@@ -1,3 +1,4 @@
+import 'package:hermes_display/core/pack/sen_pack.dart';
 import 'package:hermes_display/core/skills/sen_skill.dart';
 import 'package:hermes_display/services/sen_memory_service.dart';
 
@@ -9,6 +10,7 @@ class FakeSenMemoryService implements SenMemoryService {
   final List<String> asked = [];
   final List<(String, FactCategory, String)> facts = [];
   final List<(String, SkillKind, SkillOutcome)> records = [];
+  final List<List<MemberPack>> applied = [];
 
   @override
   Future<String> buildMemoryPrompt(String memberId) async {
@@ -32,5 +34,10 @@ class FakeSenMemoryService implements SenMemoryService {
     SkillOutcome outcome,
   ) async {
     records.add((memberId, skill, outcome));
+  }
+
+  @override
+  Future<void> applyMembers(List<MemberPack> members) async {
+    applied.add(members);
   }
 }
