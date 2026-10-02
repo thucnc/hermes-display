@@ -80,6 +80,7 @@ abstract final class AppStrings {
   static const String updateUrlHint = 'Để trống: dùng Hub (/api/app/latest)';
   static const String invalidUpdateUrl = 'Nhập URL http(s) hợp lệ';
   static const String checkUpdate = 'Kiểm tra cập nhật';
+  static const String forceUpdate = 'Buộc cập nhật ngay';
   static const String checkingUpdate = 'Đang kiểm tra…';
   static const String updateUpToDate = 'Đang dùng bản mới nhất';
   static const String updateDownloaded = 'Đã tải bản cập nhật';

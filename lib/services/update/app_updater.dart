@@ -122,15 +122,16 @@ class AppUpdater {
 
   /// Checks [endpoint] (default: the configured one). Concurrent calls
   /// share one run.
-  Future<UpdateCheck> check({Uri? endpoint}) {
+  Future<UpdateCheck> check({Uri? endpoint, bool force = false}) {
     final target = endpoint ?? _endpoint;
     if (target == null) {
       return Future.value(UpdateCheck.failed);
     }
-    return _running ??= _check(target).whenComplete(() => _running = null);
+    return _running ??=
+        _check(target, force: force).whenComplete(() => _running = null);
   }
 
-  Future<UpdateCheck> _check(Uri endpoint) async {
+  Future<UpdateCheck> _check(Uri endpoint, {bool force = false}) async {
     final installed = _installed ??= await _platform.version();
     if (installed == null) {
       return UpdateCheck.unsupported;
@@ -138,7 +139,7 @@ class AppUpdater {
     final previous = _state.value;
     _setState(UpdateState(UpdatePhase.checking, release: previous.release));
     try {
-      return await _resolve(endpoint, installed);
+      return await _resolve(endpoint, installed, force: force);
     } on Object catch (error) {
       debugPrint('$error');
       // A verified APK stays installable when a later check fails.
@@ -148,14 +149,18 @@ class AppUpdater {
     }
   }
 
-  Future<UpdateCheck> _resolve(Uri endpoint, AppVersion installed) async {
+  Future<UpdateCheck> _resolve(
+    Uri endpoint,
+    AppVersion installed, {
+    bool force = false,
+  }) async {
     final release = await _fetchLatest(endpoint);
     if (release == null) {
       _setState(UpdateState.idle);
       return UpdateCheck.upToDate;
     }
     final dir = await _updateDir();
-    if (!release.isNewerThan(installed)) {
+    if (!force && !release.isNewerThan(installed)) {
       await _clean(dir, keep: null);
       _setState(UpdateState.idle);
       return UpdateCheck.upToDate;

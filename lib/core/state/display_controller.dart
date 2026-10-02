@@ -37,6 +37,8 @@ import '../skills/skill_content.dart';
 import 'brain_mode.dart';
 import 'connection_status.dart';
 import 'display_state.dart';
+import 'farewell_intent.dart';
+import 'system_context.dart';
 
 enum SendResult { sent, empty, offline }
 
@@ -136,6 +138,7 @@ class DisplayController extends ChangeNotifier {
   Timer? _liveIdle;
   Timer? _echoTail;
   ListenMode _listenMode = ListenMode.fresh;
+  bool _isFarewellTurn = false;
 
   void _cancelEchoTail() {
     _echoTail?.cancel();
@@ -343,12 +346,18 @@ class DisplayController extends ChangeNotifier {
 
   /// Settings "Check for updates", against [candidate]'s endpoint when
   /// given.
-  Future<UpdateCheck> checkUpdate([HubSettings? candidate]) async {
+  Future<UpdateCheck> checkUpdate([
+    HubSettings? candidate,
+    bool force = false,
+  ]) async {
     final updater = _updater;
     if (updater == null) {
       return UpdateCheck.unsupported;
     }
-    return updater.check(endpoint: candidate?.normalized().updateUri);
+    return updater.check(
+      endpoint: candidate?.normalized().updateUri,
+      force: force,
+    );
   }
 
   /// Update badge tap: the system installer for the downloaded APK.
@@ -787,6 +796,7 @@ class DisplayController extends ChangeNotifier {
       member.pronounRule,
       'Bạn là Bé Sen, trợ lý thông minh gia đình. Hãy luôn trả lời với giọng nữ vui vẻ, hoạt bát, tràn đầy năng lượng. Nói với tốc độ nhanh, dứt khoát, tự nhiên và ngắn gọn, không rề rà kéo dài câu chữ.',
       'Tuyệt đối KHÔNG tự động nói hoặc chào khi mới mở kết nối. Bạn chỉ được phép trả lời khi người dùng đã hỏi hoặc nói xong.',
+      SystemContext.live(DateTime.now()),
       remembered,
       GeminiService.systemPrompt,
     ].where((part) => part.isNotEmpty).join(_contextGap);
@@ -816,6 +826,10 @@ class DisplayController extends ChangeNotifier {
       case LiveHeard(:final text):
         debugPrint('Gemini LiveHeard user speech: "$text"');
         _transcript = '$_transcript$text';
+        if (FarewellIntent.matches(_transcript)) {
+          _isFarewellTurn = true;
+          debugPrint('Farewell detected in transcript: "$_transcript" -> will hang up after reply');
+        }
         notifyListeners();
       case LiveSaid(:final text):
         debugPrint('Gemini LiveSaid chunk: "$text"');
@@ -1010,6 +1024,14 @@ class DisplayController extends ChangeNotifier {
   void _onSpoken(void _) {
     debugPrint('_onSpoken fired, state=$_state, speaking=$_speaking');
     if (_state != DisplayState.speaking) {
+      return;
+    }
+    // If user expressed a farewell, hang up gracefully and go idle
+    if (_isFarewellTurn) {
+      debugPrint('_onSpoken: farewell turn completed -> closing live session and entering idle');
+      _isFarewellTurn = false;
+      _closeLive();
+      transition(DisplayState.idle);
       return;
     }
     // Seamless follow-up if Gemini Live session is open

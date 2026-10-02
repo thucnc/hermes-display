@@ -124,13 +124,13 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     );
   }
 
-  Future<void> _checkUpdate() async {
+  Future<void> _checkUpdate({bool force = false}) async {
     final draft = _draft();
     if (draft == null) {
       return;
     }
     setState(() => _updateProbe = _UpdateProbe.checking);
-    final result = await widget.controller.checkUpdate(draft);
+    final result = await widget.controller.checkUpdate(draft, force);
     if (!mounted) {
       return;
     }
@@ -485,10 +485,13 @@ class _SettingsSheetState extends State<_SettingsSheet> {
         ),
       ),
       const SizedBox(height: Spacing.md),
-      Row(
+      Wrap(
+        spacing: Spacing.md,
+        runSpacing: Spacing.sm,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           OutlinedButton.icon(
-            onPressed: checking ? null : _checkUpdate,
+            onPressed: checking ? null : () => _checkUpdate(force: false),
             icon: checking
                 ? const SizedBox.square(
                     dimension: _spinnerSize,
@@ -499,8 +502,12 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                 : const Icon(Icons.system_update_rounded),
             label: const Text(AppStrings.checkUpdate),
           ),
-          const SizedBox(width: Spacing.md),
-          Expanded(child: _updateLabel()),
+          FilledButton.tonalIcon(
+            onPressed: checking ? null : () => _checkUpdate(force: true),
+            icon: const Icon(Icons.download_for_offline_rounded),
+            label: const Text(AppStrings.forceUpdate),
+          ),
+          _updateLabel(),
         ],
       ),
     ];
