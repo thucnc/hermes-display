@@ -99,6 +99,8 @@ void main() {
     test('HEY SEN adds Vietnamese-accent variants under one label', () {
       expect(keywordLines('hey sen', real), [
         '▁HE Y ▁SE N @HEY_SEN',
+        '▁I ▁SAID @HEY_SEN',
+        '▁THEY ▁SE ND @HEY_SEN',
         '▁HA Y ▁SE N @HEY_SEN',
         '▁HE ▁SE N @HEY_SEN',
         '▁E ▁SE N @HEY_SEN',

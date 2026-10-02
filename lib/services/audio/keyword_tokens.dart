@@ -120,7 +120,7 @@ String keywordLine(String text, KwsVocab vocab) {
 /// Extra spellings for how Vietnamese speakers say a wake phrase
 /// ("hây sen", "hê sen"); they fire under the original label.
 const Map<String, List<String>> phoneticVariants = {
-  'HEY SEN': ['HAY SEN', 'HE SEN', 'E SEN', 'HA SEN'],
+  'HEY SEN': ['I SAID', 'THEY SEND', 'HAY SEN', 'HE SEN', 'E SEN', 'HA SEN'],
 };
 
 /// [keywordLine] plus a line per [phoneticVariants] spelling that

@@ -77,8 +77,8 @@ abstract final class _Key {
   static const String system = 'systemInstruction';
   static const String parts = 'parts';
   static const String text = 'text';
-  static const String inputTranscription = 'inputAudioTranscription';
-  static const String outputTranscription = 'outputAudioTranscription';
+  static const String inputAudioTranscription = 'inputAudioTranscription';
+  static const String outputAudioTranscription = 'outputAudioTranscription';
   static const String realtimeInput = 'realtimeInput';
   static const String mediaChunks = 'mediaChunks';
   static const String mimeType = 'mimeType';
@@ -88,8 +88,8 @@ abstract final class _Key {
   static const String serverContent = 'serverContent';
   static const String modelTurn = 'modelTurn';
   static const String inlineData = 'inlineData';
-  static const String heard = 'inputTranscription';
-  static const String said = 'outputTranscription';
+  static const String heard = 'inputAudioTranscription';
+  static const String said = 'outputAudioTranscription';
   static const String interrupted = 'interrupted';
   static const String turnComplete = 'turnComplete';
 }
@@ -357,8 +357,8 @@ final class GeminiLiveService {
             {_Key.text: setup.instruction},
           ],
         },
-        _Key.inputTranscription: <String, Object?>{},
-        _Key.outputTranscription: <String, Object?>{},
+        _Key.inputAudioTranscription: <String, Object?>{},
+        _Key.outputAudioTranscription: <String, Object?>{},
       },
     };
   }

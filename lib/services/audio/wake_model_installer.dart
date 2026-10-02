@@ -36,17 +36,17 @@ final class KwsModelSpec {
     ),
     encoder: const ModelArtifact(
       'encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx',
-      4807159,
+      4843477,
       '1e721676515bcd42a186979733981213c66c80db680e1cc582dfedf3be76e678',
     ),
     decoder: const ModelArtifact(
       'decoder-epoch-12-avg-2-chunk-16-left-64.onnx',
-      1063189,
+      1018519,
       'f61ebd3eed3773a44d088d53dfae92dbb6aec4839f4dcaee2d402414741663a3',
     ),
     joiner: const ModelArtifact(
       'joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx',
-      163380,
+      165845,
       'eae9da0c7e1e6c6a3f4cc42d167899c388f6c6701b94cb96320e4f55df79624c',
     ),
     tokens: const ModelArtifact(
