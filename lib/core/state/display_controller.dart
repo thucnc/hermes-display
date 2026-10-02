@@ -972,6 +972,7 @@ class DisplayController extends ChangeNotifier {
   }
 
   void _onSpoken(void _) {
+    debugPrint('_onSpoken fired, state=$_state, speaking=$_speaking');
     if (_state != DisplayState.speaking) {
       return;
     }
