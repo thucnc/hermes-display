@@ -148,7 +148,7 @@ void main() {
     await stopTalking();
     expect(controller.state, DisplayState.thinking);
     expect(liveSent().last, {
-      'realtimeInput': {'audioStreamEnd': true},
+      'clientContent': {'turnComplete': true},
     });
     expect(controller.transcript, 'chiên trứng thế nào');
 

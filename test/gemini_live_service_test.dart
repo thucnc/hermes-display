@@ -123,7 +123,7 @@ void main() {
     await opened();
     live.endAudio();
     expect(sent(1), {
-      'realtimeInput': {'audioStreamEnd': true},
+      'clientContent': {'turnComplete': true},
     });
   });
 

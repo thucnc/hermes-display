@@ -83,7 +83,7 @@ abstract final class _Key {
   static const String mediaChunks = 'mediaChunks';
   static const String mimeType = 'mimeType';
   static const String data = 'data';
-  static const String audioStreamEnd = 'audioStreamEnd';
+  static const String clientContent = 'clientContent';
   static const String setupComplete = 'setupComplete';
   static const String serverContent = 'serverContent';
   static const String modelTurn = 'modelTurn';
@@ -188,6 +188,29 @@ final class GeminiLiveService {
       return;
     }
     transport.send(_endFrame);
+  }
+
+  /// Sends a text user turn; Gemini speaks and streams the reply.
+  void sendText(String text) {
+    final transport = _transport;
+    if (!_ready || transport == null) {
+      return;
+    }
+    transport.send(
+      jsonEncode({
+        _Key.clientContent: {
+          'turns': [
+            {
+              'role': 'user',
+              _Key.parts: [
+                {_Key.text: text},
+              ],
+            },
+          ],
+          _Key.turnComplete: true,
+        },
+      }),
+    );
   }
 
   Future<void> close() async {
@@ -341,7 +364,7 @@ final class GeminiLiveService {
   }
 
   static final String _endFrame = jsonEncode({
-    _Key.realtimeInput: {_Key.audioStreamEnd: true},
+    _Key.clientContent: {_Key.turnComplete: true},
   });
 
   static String _chunkFrame(List<int> pcm) {

@@ -173,7 +173,6 @@ class DisplayController extends ChangeNotifier {
   /// PCM of the current capture, sent to Gemini when the hub is offline.
   final BytesBuilder _capturePcm = BytesBuilder(copy: false);
   static const String _ttsOffline = 'Hub offline: Gemini answer shown only';
-  static const String _ttsFailed = 'Hub TTS unavailable: answer shown only';
   static const String _ttsPlayFailed = 'TTS playback failed';
   VoiceStatus? _voiceStatus;
   bool _starting = false;
@@ -604,26 +603,33 @@ class DisplayController extends ChangeNotifier {
     final hubTts = _hubTts;
     final tts = _tts;
     final summary = spokenSummary(answer);
-    if (hubTts == null || tts == null || summary.isEmpty) {
+    if (summary.isEmpty) {
       return;
     }
-    if (!_hubOnline) {
-      debugPrint(_ttsOffline);
+    if (_hubOnline && hubTts != null && tts != null) {
+      final audio = await hubTts.fetch(_settings.ttsUri, summary);
+      if (_isStale(turn) || _state != DisplayState.speaking) {
+        return;
+      }
+      if (audio != null) {
+        try {
+          await tts.play(audio);
+          return;
+        } on Exception catch (error) {
+          debugPrint('$_ttsPlayFailed: $error');
+        }
+      }
+    }
+    final live = _live;
+    if (live != null && _voiceBrain == BrainMode.gemini) {
+      _liveTurn = _LiveTurn.streaming;
+      await _openLive(live, turn);
+      if (!_isStale(turn) && live.isOpen) {
+        live.sendText('Đọc to đoạn này: $summary');
+      }
       return;
     }
-    final audio = await hubTts.fetch(_settings.ttsUri, summary);
-    if (_isStale(turn) || _state != DisplayState.speaking) {
-      return;
-    }
-    if (audio == null) {
-      debugPrint(_ttsFailed);
-      return;
-    }
-    try {
-      await tts.play(audio);
-    } on Exception catch (error) {
-      debugPrint('$_ttsPlayFailed: $error');
-    }
+    debugPrint(_ttsOffline);
   }
 
   bool _isStale(int turn) => _disposed || turn != _geminiTurn;
