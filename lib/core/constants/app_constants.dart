@@ -21,6 +21,7 @@ abstract final class HubDefaults {
 
   /// Empty: the hub's [UpdateDefaults.latestPath].
   static const String updateUrl = '';
+
   /// Empty: placeholder slideshow instead of family photos.
   static const String photoManifestUrl = '';
 }
@@ -81,13 +82,14 @@ abstract final class VoiceLevels {
 abstract final class WakeTuning {
   /// Sensitivity 0..1 maps linearly onto this spotter threshold range;
   /// higher sensitivity means a lower threshold.
-  static const double strictThreshold = 0.3;
-  static const double looseThreshold = 0.05;
+  /// Lowered for Vietnamese "Hey Sen", which scores weaker than English.
+  static const double strictThreshold = 0.25;
+  static const double looseThreshold = 0.03;
   static const int numThreads = 1;
 
   /// Boost for keyword paths during decoding.
-  static const double keywordsScore = 1.5;
-  static const int defaultTrailingBlanks = 3;
+  static const double keywordsScore = 2.0;
+  static const int defaultTrailingBlanks = 1;
   static const int minTrailingBlanks = 1;
   static const int maxTrailingBlanks = 5;
 }
@@ -122,6 +124,29 @@ abstract final class GeminiDefaults {
   static const String pathPrefix = '/v1beta/models/';
   static const String action = ':generateContent';
   static const Duration timeout = Duration(seconds: 30);
+}
+
+/// Bidirectional speech-to-speech over WebSocket; no hub needed.
+abstract final class GeminiLiveDefaults {
+  static const String scheme = 'wss';
+  static const String path =
+      '/ws/google.ai.generativelanguage.v1alpha.GenerativeService'
+      '.BidiGenerateContent';
+  static const String model = 'models/gemini-3.8-live';
+
+  /// Prebuilt voices: Puck, Aoede, Fenrir, Kore, Leda.
+  static const String voice = 'Puck';
+  static const String inputMime = 'audio/pcm;rate=16000';
+
+  /// Used when a reply chunk's mime type names no rate.
+  static const int outputRate = 24000;
+  static const Duration setupTimeout = Duration(seconds: 8);
+
+  /// Reply audio buffered before each WAV segment starts playing.
+  static const Duration startBuffer = Duration(milliseconds: 600);
+
+  /// Idle session closed after this; the next wake reconnects.
+  static const Duration keepWarm = Duration(minutes: 2);
 }
 
 /// Hub HTTP endpoint for "Save to Hermes"; shares the WebSocket host:port.

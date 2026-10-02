@@ -111,8 +111,39 @@ List<String> keywordToTokens(String text, KwsVocab vocab) {
 String keywordLine(String text, KwsVocab vocab) {
   final tokens = keywordToTokens(text, vocab);
   final label = keywordWords(text).join(KeywordSyntax.labelJoiner);
-  return [...tokens, '${KeywordSyntax.label}$label']
-      .join(KeywordSyntax.separator);
+  return [
+    ...tokens,
+    '${KeywordSyntax.label}$label',
+  ].join(KeywordSyntax.separator);
+}
+
+/// Extra spellings for how Vietnamese speakers say a wake phrase
+/// ("hây sen", "hê sen"); they fire under the original label.
+const Map<String, List<String>> phoneticVariants = {
+  'HEY SEN': ['HAY SEN', 'HE SEN'],
+};
+
+/// [keywordLine] plus a line per [phoneticVariants] spelling that
+/// tokenises in [vocab]; throws like [keywordToTokens] for [text] itself.
+List<String> keywordLines(String text, KwsVocab vocab) {
+  final words = keywordWords(text);
+  final label =
+      '${KeywordSyntax.label}${words.join(KeywordSyntax.labelJoiner)}';
+  final lines = [keywordLine(text, vocab)];
+  final variants = phoneticVariants[words.join(KeywordSyntax.separator)];
+  for (final variant in variants ?? const <String>[]) {
+    try {
+      lines.add(
+        [
+          ...keywordToTokens(variant, vocab),
+          label,
+        ].join(KeywordSyntax.separator),
+      );
+    } on KeywordException {
+      continue;
+    }
+  }
+  return lines;
 }
 
 List<String> _tokenizeWord(String word, KwsVocab vocab) {

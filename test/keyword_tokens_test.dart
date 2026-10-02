@@ -48,6 +48,13 @@ void main() {
     expect(keywordLine('hey sen', vocab), '▁HE Y ▁SE N @HEY_SEN');
   });
 
+  test('variants missing from the vocabulary are skipped', () {
+    expect(keywordLines('HEY SEN', vocab), [
+      '▁HE Y ▁SE N @HEY_SEN',
+      '▁HE ▁SE N @HEY_SEN',
+    ]);
+  });
+
   test('empty input is rejected', () {
     expect(
       () => keywordToTokens('   ', vocab),
@@ -87,6 +94,18 @@ void main() {
 
     test('HEY SEN', () {
       expect(keywordLine('HEY SEN', real), '▁HE Y ▁SE N @HEY_SEN');
+    });
+
+    test('HEY SEN adds Vietnamese-accent variants under one label', () {
+      expect(keywordLines('hey sen', real), [
+        '▁HE Y ▁SE N @HEY_SEN',
+        '▁HA Y ▁SE N @HEY_SEN',
+        '▁HE ▁SE N @HEY_SEN',
+      ]);
+    });
+
+    test('other keywords get a single line', () {
+      expect(keywordLines('HEY HERMES', real), ['▁HE Y ▁HER ME S @HEY_HERMES']);
     });
 
     test('HEY HERMES matches the reference keywords.txt', () {

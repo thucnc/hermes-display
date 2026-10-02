@@ -21,11 +21,16 @@ abstract interface class TtsPlayer {
 }
 
 final class DeviceTtsPlayer implements TtsPlayer {
-  DeviceTtsPlayer({AudioPlayer? player}) : _player = player ?? AudioPlayer() {
+  DeviceTtsPlayer({AudioPlayer? player, String mime = mp3Mime})
+    : _player = player ?? AudioPlayer(),
+      _mime = mime {
     _ended = _player.onPlayerComplete.listen(_onEnded);
   }
 
-  static const String _mime = 'audio/mpeg';
+  static const String mp3Mime = 'audio/mpeg';
+  static const String wavMime = 'audio/wav';
+
+  final String _mime;
 
   final AudioPlayer _player;
   final StreamController<void> _complete = StreamController<void>.broadcast();

@@ -56,7 +56,10 @@ abstract final class ToneSynth {
     return out;
   }
 
-  static Uint8List wav(Int16List samples) {
+  static Uint8List wav(
+    Int16List samples, {
+    int sampleRate = AudioSpec.sampleRate,
+  }) {
     final dataBytes = samples.length * AudioSpec.bytesPerSample;
     final frameBytes = AudioSpec.channels * AudioSpec.bytesPerSample;
     final header = _LeWriter(_headerBytes)
@@ -67,8 +70,8 @@ abstract final class ToneSynth {
       ..u32(_fmtChunkBytes)
       ..u16(_pcmFormat)
       ..u16(AudioSpec.channels)
-      ..u32(AudioSpec.sampleRate)
-      ..u32(AudioSpec.sampleRate * frameBytes)
+      ..u32(sampleRate)
+      ..u32(sampleRate * frameBytes)
       ..u16(frameBytes)
       ..u16(_bitsPerSample)
       ..id(_dataId)

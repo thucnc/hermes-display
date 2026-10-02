@@ -7,8 +7,10 @@ import 'package:flutter/widgets.dart';
 import '../../services/audio/cue_player.dart';
 import '../../services/audio/keyword_tokens.dart' as tokens;
 import '../../services/audio/mic_keep_alive.dart';
+import '../../services/audio/pcm_player.dart';
 import '../../services/audio/tts_player.dart';
 import '../../services/audio/wake_model_installer.dart';
+import '../../services/gemini_live_service.dart';
 import '../../services/gemini_service.dart';
 import '../../services/hermes_sync_service.dart';
 import '../../services/hermes_websocket_client.dart';
@@ -40,6 +42,9 @@ enum SendResult { sent, empty, offline }
 
 enum ListenResult { started, busy, offline, noPermission, micUnavailable }
 
+/// How the current voice turn reaches Gemini Live.
+enum _LiveTurn { none, streaming, failed }
+
 /// Single source of truth for the display. UI reads from here and calls
 /// intents; services are never touched by widgets directly.
 class DisplayController extends ChangeNotifier {
@@ -59,6 +64,8 @@ class DisplayController extends ChangeNotifier {
     SenPackService? pack,
     AppUpdater? updater,
     PhotoFrame? photos,
+    GeminiLiveService? live,
+    PcmPlayer? pcm,
   }) : _settingsService = settingsService,
        _client = client,
        _voice = voice,
@@ -74,6 +81,8 @@ class DisplayController extends ChangeNotifier {
        _pack = pack,
        _updater = updater,
        _photos = photos ?? PhotoFrame(),
+       _live = live,
+       _pcm = pcm,
        _settings = settingsService.load();
 
   final SettingsService _settingsService;
@@ -112,6 +121,18 @@ class DisplayController extends ChangeNotifier {
 
   /// Null: built-in family and skills only.
   final SenPackService? _pack;
+
+  /// Null: Gemini voice turns go through the WAV request instead.
+  final GeminiLiveService? _live;
+
+  /// Null: Gemini Live replies are shown, never spoken.
+  final PcmPlayer? _pcm;
+  _LiveTurn _liveTurn = _LiveTurn.none;
+
+  /// Member and key the warm session was set up for.
+  (String, String)? _liveOwner;
+  Timer? _liveIdle;
+  static const String _liveLost = 'Mất kết nối Gemini Live';
 
   /// Null: no APK over-the-air updates.
   final AppUpdater? _updater;
@@ -197,7 +218,9 @@ class DisplayController extends ChangeNotifier {
     _stopSpeech();
   }
 
-  bool get _speaking => _tts?.isPlaying ?? false;
+  bool get _speaking {
+    return (_tts?.isPlaying ?? false) || (_pcm?.isPlaying ?? false);
+  }
 
   InstallProgress get modelProgress {
     return _installer?.progress.value ?? InstallProgress.idle;
@@ -222,6 +245,14 @@ class DisplayController extends ChangeNotifier {
     final tts = _tts;
     if (tts != null) {
       _subscriptions.add(tts.onComplete.listen(_onSpoken));
+    }
+    final pcm = _pcm;
+    if (pcm != null) {
+      _subscriptions.add(pcm.onComplete.listen(_onSpoken));
+    }
+    final live = _live;
+    if (live != null) {
+      _subscriptions.add(live.events.listen(_onLive));
     }
     _client.connect(_settings.wsUri);
     _dimmer?.start(_settings.dim);
@@ -665,6 +696,10 @@ class DisplayController extends ChangeNotifier {
   /// Gemini listens without the hub; the turn is then Gemini's so hub
   /// reconnect attempts do not end it.
   bool wake() {
+    final live = _live;
+    if (live != null && _liveVoice) {
+      return _wakeLive(live);
+    }
     final sent = _client.send(HermesCodec.command(WireType.wake));
     if (!sent && _voiceBrain != BrainMode.gemini) {
       return false;
@@ -678,10 +713,146 @@ class DisplayController extends ChangeNotifier {
     return true;
   }
 
+  /// Speech-to-speech turn on Gemini Live; the hub is never involved.
+  bool _wakeLive(GeminiLiveService live) {
+    if (!transition(DisplayState.listening)) {
+      return false;
+    }
+    _turnBrain = BrainMode.gemini;
+    _liveTurn = _LiveTurn.streaming;
+    _liveIdle?.cancel();
+    unawaited(_openLive(live, ++_geminiTurn));
+    return true;
+  }
+
+  /// Mic audio sent meanwhile is queued by [GeminiLiveService.sendAudio].
+  Future<void> _openLive(GeminiLiveService live, int turn) async {
+    final member = this.member;
+    final owner = (member.id, _settings.geminiApiKey);
+    if (_liveOwner != owner) {
+      await live.close();
+      _liveOwner = owner;
+    }
+    final memory = _memory;
+    final remembered = memory == null ? '' : await _recall(memory, member);
+    if (_isStale(turn)) {
+      return;
+    }
+    final instruction = [
+      remembered,
+      GeminiService.systemPrompt,
+    ].where((part) => part.isNotEmpty).join(_contextGap);
+    final result = await live.open(
+      LiveSetup(apiKey: owner.$2, instruction: instruction),
+    );
+    if (_isStale(turn) || result == LiveOpen.ready) {
+      return;
+    }
+    _onLiveLost();
+  }
+
+  bool get _liveVoice {
+    return _live != null && _voice != null && _voiceBrain == BrainMode.gemini;
+  }
+
+  void _onLive(LiveEvent event) {
+    if (_liveTurn != _LiveTurn.streaming) {
+      return;
+    }
+    _armWatchdog(_state);
+    switch (event) {
+      case LiveHeard(:final text):
+        _transcript = '$_transcript$text';
+        notifyListeners();
+      case LiveSaid(:final text):
+        _liveAnswering();
+        _reply = '$_reply$text';
+        notifyListeners();
+      case LiveAudio(:final pcm, :final sampleRate):
+        _onLiveAudio(pcm, sampleRate);
+      case LiveInterrupted():
+        unawaited(_pcm?.stop());
+      case LiveTurnDone():
+        _onLiveDone();
+      case LiveClosed():
+        _onLiveLost();
+    }
+  }
+
+  /// Gemini's own end-of-speech detection may beat the local endpointer.
+  void _liveAnswering() {
+    if (_state != DisplayState.listening) {
+      return;
+    }
+    transition(DisplayState.thinking);
+  }
+
+  void _onLiveAudio(Uint8List pcm, int sampleRate) {
+    _liveAnswering();
+    if (_state == DisplayState.thinking) {
+      transition(DisplayState.speaking);
+    }
+    if (_state != DisplayState.speaking) {
+      return;
+    }
+    _pcm?.add(pcm, sampleRate);
+  }
+
+  /// Card from the reply transcript; idle once the audio plays out.
+  void _onLiveDone() {
+    if (_state == DisplayState.listening) {
+      return;
+    }
+    if (_reply.isEmpty && !_speaking) {
+      _forceIdle();
+      return;
+    }
+    transition(DisplayState.speaking);
+    _rich = RichContent.parse(question: _transcript, reply: _reply);
+    _session = null;
+    _quizPick = null;
+    notifyListeners();
+    _pcm?.finish();
+  }
+
+  /// While listening the captured WAV is sent instead; later, what has
+  /// played so far stands.
+  void _onLiveLost() {
+    if (_state == DisplayState.listening) {
+      _liveTurn = _LiveTurn.failed;
+      return;
+    }
+    _liveTurn = _LiveTurn.none;
+    if (_speaking) {
+      _pcm?.finish();
+      return;
+    }
+    _lastError = _liveLost;
+    _forceIdle();
+  }
+
+  void _closeLive() {
+    _liveTurn = _LiveTurn.none;
+    _liveIdle?.cancel();
+    unawaited(_live?.close());
+  }
+
+  /// Keeps the session warm for a follow-up question, then hangs up.
+  void _armLiveIdle() {
+    _liveTurn = _LiveTurn.none;
+    _liveIdle?.cancel();
+    final live = _live;
+    if (live == null || !live.isOpen) {
+      return;
+    }
+    _liveIdle = Timer(GeminiLiveDefaults.keepWarm, _closeLive);
+  }
+
   bool get _hubOnline => _connection == ConnectionStatus.connected;
 
   void cancel() {
     _geminiTurn++;
+    _closeLive();
     _client.send(HermesCodec.command(WireType.cancel));
     _forceIdle();
   }
@@ -727,6 +898,7 @@ class DisplayController extends ChangeNotifier {
     if (next == DisplayState.idle) {
       _dimmer?.release(BrightHold.turn);
       unawaited(_releaseScreen());
+      _armLiveIdle();
       _turnBrain = BrainMode.hub;
       _transcript = '';
       _reply = '';
@@ -764,10 +936,12 @@ class DisplayController extends ChangeNotifier {
   }
 
   void _stopSpeech() {
-    if (!_speaking) {
-      return;
+    if (_tts?.isPlaying ?? false) {
+      unawaited(_tts?.stop());
     }
-    unawaited(_tts?.stop());
+    if (_pcm?.isPlaying ?? false) {
+      unawaited(_pcm?.stop());
+    }
   }
 
   void _onSpoken(void _) {
@@ -834,13 +1008,24 @@ class DisplayController extends ChangeNotifier {
         if (_state != DisplayState.listening) {
           return;
         }
-        _client.sendAudio(pcm);
+        _streamAudio(pcm);
         if (_voiceBrain == BrainMode.gemini) {
           _capturePcm.add(pcm);
         }
         _level.value = level;
       case CaptureDone(:final reason):
         _onCaptureDone(reason);
+    }
+  }
+
+  void _streamAudio(Uint8List pcm) {
+    switch (_liveTurn) {
+      case _LiveTurn.streaming:
+        _live?.sendAudio(pcm);
+      case _LiveTurn.failed:
+        return;
+      case _LiveTurn.none:
+        _client.sendAudio(pcm);
     }
   }
 
@@ -895,6 +1080,11 @@ class DisplayController extends ChangeNotifier {
   /// Hub transcribes when it heard the turn; otherwise Gemini hears the
   /// WAV itself.
   void _endCapture() {
+    if (_liveTurn == _LiveTurn.streaming) {
+      _live?.endAudio();
+      transition(DisplayState.thinking);
+      return;
+    }
     final gemini = _gemini;
     final hubHeard = _hubOnline && _turnBrain == BrainMode.hub;
     if (gemini == null || hubHeard || _voiceBrain != BrainMode.gemini) {
@@ -948,6 +1138,7 @@ class DisplayController extends ChangeNotifier {
       subscription.cancel();
     }
     _watchdog?.cancel();
+    _liveIdle?.cancel();
     _packTimer?.cancel();
     _lifecycle?.dispose();
     _updater?.dispose();
@@ -958,6 +1149,8 @@ class DisplayController extends ChangeNotifier {
     _client.dispose();
     _voice?.dispose();
     unawaited(_tts?.dispose());
+    unawaited(_live?.dispose());
+    unawaited(_pcm?.dispose());
     _level.dispose();
     _photos.dispose();
     super.dispose();

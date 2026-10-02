@@ -94,8 +94,8 @@ final class SherpaWakeDetector implements WakeDetector {
       }
       final vocab = KwsVocab.parse(await File(files.tokens).readAsString());
       _vocab = vocab;
-      final line = keywordLine(config.keyword, vocab);
-      await File(files.keywords).writeAsString('$line$_newline', flush: true);
+      final lines = keywordLines(config.keyword, vocab).join(_newline);
+      await File(files.keywords).writeAsString('$lines$_newline', flush: true);
       _ensureBindings();
       _build(files, config);
       return true;

@@ -7,8 +7,10 @@ import 'core/constants/app_constants.dart';
 import 'core/photos/photo_frame.dart';
 import 'core/state/display_controller.dart';
 import 'services/audio/mic_keep_alive.dart';
+import 'services/audio/pcm_player.dart';
 import 'services/audio/tts_player.dart';
 import 'services/audio/wake_model_installer.dart';
+import 'services/gemini_live_service.dart';
 import 'services/gemini_service.dart';
 import 'services/hermes_sync_service.dart';
 import 'services/hermes_websocket_client.dart';
@@ -55,6 +57,10 @@ Future<void> main() async {
       manifests: PhotoManifestService(prefs: prefs),
       cache: PhotoCache(),
       deck: PhotoDefaults.deck,
+    ),
+    live: GeminiLiveService(),
+    pcm: SegmentPcmPlayer(
+      clips: DeviceTtsPlayer(mime: DeviceTtsPlayer.wavMime),
     ),
   )..start();
   controller.attachLifecycle();

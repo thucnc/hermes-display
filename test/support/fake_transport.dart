@@ -37,7 +37,7 @@ class FakeTransport implements HubTransport {
     closed = true;
   }
 
-  void push(String data) => _incoming.add(data);
+  void push(Object data) => _incoming.add(data);
 
   Future<void> drop() => _incoming.close();
 }

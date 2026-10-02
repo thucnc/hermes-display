@@ -229,8 +229,8 @@ void main() {
   });
 
   test('defaults accept Vietnamese "Hey Sen" pronunciation', () {
-    const vietnameseCeiling = 0.1;
-    const loosestTarget = 0.05;
+    const vietnameseCeiling = 0.074;
+    const loosestTarget = 0.03;
     final byDefault = WakeConfig(
       keyword: HubDefaults.wakeKeyword,
       sensitivity: HubDefaults.wakeSensitivity,
@@ -242,6 +242,13 @@ void main() {
     expect(HubDefaults.wakeSensitivity, 0.8);
     expect(byDefault.threshold, closeTo(vietnameseCeiling, 1e-9));
     expect(loosest.threshold, closeTo(loosestTarget, 1e-9));
+  });
+
+  test('tuning is boosted for Vietnamese speakers', () {
+    expect(WakeTuning.keywordsScore, 2.0);
+    expect(WakeTuning.strictThreshold, 0.25);
+    expect(WakeTuning.looseThreshold, 0.03);
+    expect(Voice.config.trailingBlanks, 1);
   });
 
   test('sensitivity maps onto spotter threshold', () {
