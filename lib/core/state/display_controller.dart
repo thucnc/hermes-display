@@ -10,6 +10,7 @@ import '../../services/audio/mic_keep_alive.dart';
 import '../../services/audio/pcm_player.dart';
 import '../../services/audio/tts_player.dart';
 import '../../services/audio/wake_model_installer.dart';
+import '../../services/chat_thread_service.dart';
 import '../../services/gemini_live_service.dart';
 import '../../services/gemini_service.dart';
 import '../../services/hermes_sync_service.dart';
@@ -25,6 +26,7 @@ import '../../services/settings_service.dart';
 import '../../services/update/app_platform.dart';
 import '../../services/update/app_updater.dart';
 import '../../services/wake_word_service.dart';
+import '../chat/chat_thread.dart';
 import '../constants/app_constants.dart';
 import '../media/rich_content.dart';
 import '../media/spoken_summary.dart';
@@ -70,6 +72,7 @@ class DisplayController extends ChangeNotifier {
     PhotoFrame? photos,
     GeminiLiveService? live,
     PcmPlayer? pcm,
+    ChatThreadService? threads,
   }) : _settingsService = settingsService,
        _client = client,
        _voice = voice,
@@ -87,6 +90,7 @@ class DisplayController extends ChangeNotifier {
        _photos = photos ?? PhotoFrame(),
        _live = live,
        _pcm = pcm,
+       _threads = threads ?? ChatThreadService(),
        _settings = settingsService.load();
 
   final SettingsService _settingsService;
@@ -131,6 +135,25 @@ class DisplayController extends ChangeNotifier {
 
   /// Null: Gemini Live replies are shown, never spoken.
   final PcmPlayer? _pcm;
+  final ChatThreadService _threads;
+  ChatThread? _activeThread;
+
+  ChatThread? get activeThread => _activeThread;
+  ChatThreadService get threadService => _threads;
+
+  Future<void> startNewThread() async {
+    _activeThread = await _threads.createThread(member.id);
+    _closeLive();
+    _forceIdle();
+    notifyListeners();
+  }
+
+  Future<void> resumeThread(ChatThread thread) async {
+    _activeThread = thread;
+    _closeLive();
+    _forceIdle();
+    notifyListeners();
+  }
   _LiveTurn _liveTurn = _LiveTurn.none;
 
   /// Member and key the warm session was set up for.
@@ -792,12 +815,22 @@ class DisplayController extends ChangeNotifier {
     if (_isStale(turn)) {
       return;
     }
+    // Load recent chat history from active thread if available
+    String chatHistoryContext = '';
+    if (_activeThread != null) {
+      try {
+        final msgs = await _threads.getMessages(_activeThread!.id);
+        chatHistoryContext = ChatMessage.formatContext(msgs);
+      } catch (_) {}
+    }
+
     final instruction = [
       member.pronounRule,
       'Bạn là Bé Sen, trợ lý thông minh gia đình. Hãy luôn trả lời với giọng nữ vui vẻ, hoạt bát, tràn đầy năng lượng. Nói với tốc độ nhanh, dứt khoát, tự nhiên và ngắn gọn, không rề rà kéo dài câu chữ.',
       'Tuyệt đối KHÔNG tự động nói hoặc chào khi mới mở kết nối. Bạn chỉ được phép trả lời khi người dùng đã hỏi hoặc nói xong.',
       SystemContext.live(DateTime.now()),
       remembered,
+      if (chatHistoryContext.isNotEmpty) chatHistoryContext,
       GeminiService.systemPrompt,
     ].where((part) => part.isNotEmpty).join(_contextGap);
     debugPrint('Opening Gemini Live for turn $turn with key ${_settings.geminiApiKey.isNotEmpty ? "SET" : "EMPTY"}');
@@ -882,8 +915,40 @@ class DisplayController extends ChangeNotifier {
     _rich = RichContent.parse(question: _transcript, reply: _reply);
     _session = null;
     _quizPick = null;
+    _saveToThread();
     notifyListeners();
     _pcm?.finish();
+  }
+
+  Future<void> _saveToThread() async {
+    final q = _transcript.trim();
+    final a = _reply.trim();
+    if (q.isEmpty && a.isEmpty) return;
+
+    try {
+      _activeThread ??= await _threads.createThread(
+        member.id,
+        initialTitle: q.isNotEmpty ? q : a,
+      );
+      final threadId = _activeThread!.id;
+      if (q.isNotEmpty) {
+        await _threads.addMessage(
+          threadId: threadId,
+          role: 'user',
+          text: q,
+          titleIfFirst: q,
+        );
+      }
+      if (a.isNotEmpty) {
+        await _threads.addMessage(
+          threadId: threadId,
+          role: 'assistant',
+          text: a,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error saving to thread: $e');
+    }
   }
 
   /// While listening the captured WAV is sent instead; later, what has

@@ -8,6 +8,7 @@ import '../../services/wake_word_service.dart';
 import '../strings.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ambient_clock.dart';
+import '../widgets/history_sheet.dart';
 import '../widgets/legibility_scrim.dart';
 import '../widgets/member_switcher.dart';
 import '../widgets/photo_caption.dart';
@@ -114,10 +115,21 @@ class AmbientScreen extends StatelessWidget {
                   ),
                   Align(
                     alignment: Alignment.topRight,
-                    child: IconButton(
-                      tooltip: AppStrings.tipSettings,
-                      icon: const Icon(Icons.tune_rounded),
-                      onPressed: () => showSettingsSheet(context, controller),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'Lịch sử trò chuyện',
+                          icon: const Icon(Icons.history_rounded),
+                          onPressed: () => HistorySheet.show(context, controller),
+                        ),
+                        const SizedBox(width: Spacing.xs),
+                        IconButton(
+                          tooltip: AppStrings.tipSettings,
+                          icon: const Icon(Icons.tune_rounded),
+                          onPressed: () => showSettingsSheet(context, controller),
+                        ),
+                      ],
                     ),
                   ),
                   Align(
