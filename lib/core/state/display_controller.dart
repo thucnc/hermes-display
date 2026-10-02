@@ -798,7 +798,9 @@ class DisplayController extends ChangeNotifier {
   }
 
   void _onLiveAudio(Uint8List pcm, int sampleRate) {
-    _liveAnswering();
+    if (_state == DisplayState.listening) {
+      transition(DisplayState.thinking);
+    }
     if (_state == DisplayState.thinking) {
       transition(DisplayState.speaking);
     }
@@ -811,7 +813,7 @@ class DisplayController extends ChangeNotifier {
   /// Card from the reply transcript; idle once the audio plays out.
   void _onLiveDone() {
     if (_state == DisplayState.listening) {
-      return;
+      transition(DisplayState.thinking);
     }
     if (_reply.isEmpty && !_speaking) {
       _forceIdle();
