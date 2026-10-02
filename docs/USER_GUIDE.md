@@ -164,7 +164,12 @@ Sen/
 └── assets/         # avatars/, voice/
 ```
 
-> ⚠️ **Trạng thái hiện tại (v0.5.0):** app trên tablet **chưa đọc trực tiếp** thư mục `Sen/`. Thành viên và kỹ năng đang được định nghĩa trong app (Bố Thức / Mẹ / Bé; Đố vui, Tiếng Anh). Các file trong `Sen/` là nguồn chuẩn để Hermes Agent tham chiếu và là đặc tả cho tính năng **hot-reload no-code** sắp tới — viết đúng mẫu ngay từ bây giờ để khi bật đồng bộ, Sen dùng được ngay không cần sửa.
+> ⚡ **Đồng bộ Online không cần build APK (từ v0.5.1):** App hỗ trợ nạp động toàn bộ hồ sơ thành viên, kỹ năng và nghi thức thông qua **URL Gói Tri Thức (Knowledge Pack URL)** (hỗ trợ GitHub Raw, Gist, Cloudflare Pages, S3, hoặc Mac mini Hub live tại `http://<mac-ip>:8901/api/sen/pack`). 
+> 
+> **Cách xuất và đồng bộ:**
+> 1. Trên Mac mini, chạy: `python3 /Users/mac/hermes-voice-bridge/tools/export_sen_pack.py -o sen-pack.json`
+> 2. Đưa file `sen-pack.json` lên URL công khai (hoặc để `display_hub.py` tự phát).
+> 3. Mở **Cài đặt** trên tablet → dán URL vào mục **"URL Gói Tri Thức"** → bấm **"Đồng bộ ngay"**. Tablet sẽ tải về, lưu vào SQLite cục bộ và chạy offline vĩnh viễn!
 
 ### 4.1. Tạo kỹ năng mới (`Sen/skills/`)
 1. Obsidian → thư mục `Sen/skills/` → tạo file mới, tên viết thường không dấu, nối bằng `-` (ví dụ `doc-tho.md`).
