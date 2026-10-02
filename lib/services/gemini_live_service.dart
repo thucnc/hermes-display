@@ -92,6 +92,8 @@ abstract final class _Key {
   static const String said = 'outputTranscription';
   static const String interrupted = 'interrupted';
   static const String turnComplete = 'turnComplete';
+  static const String tools = 'tools';
+  static const String googleSearch = 'google_search';
 }
 
 /// Gemini Live (BidiGenerateContent): mic PCM up, spoken reply PCM down.
@@ -358,6 +360,9 @@ final class GeminiLiveService {
             {_Key.text: setup.instruction},
           ],
         },
+        _Key.tools: [
+          {_Key.googleSearch: <String, Object?>{}},
+        ],
         _Key.inputAudioTranscription: <String, Object?>{},
         _Key.outputAudioTranscription: <String, Object?>{},
       },
