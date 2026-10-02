@@ -52,6 +52,24 @@ abstract final class AppStrings {
   static const String cancel = 'Huỷ';
   static const String invalidHost = 'Nhập địa chỉ hợp lệ';
   static const String invalidPort = 'Cổng từ 1 đến 65535';
+  static const String brainTitle = 'Bộ não trả lời';
+  static const String brainHub = 'Hub (Hermes Agent)';
+  static const String brainGemini = 'Gemini 3.8 Flash';
+  static const String brainNoKey = 'Chưa có API key — đang dùng Hub';
+  static const String brainVoiceHint =
+      'Câu hỏi bằng giọng nói vẫn đi qua Hub (nhận diện giọng nói ở Hub)';
+  static const String geminiKey = 'Gemini API key';
+  static const String showKey = 'Hiện key';
+  static const String hideKey = 'Ẩn key';
+
+  static const String playVideo = 'Phát Video';
+  static const String videoFallbackTitle = 'Video YouTube';
+  static const String stepsTitle = 'Các bước';
+  static const String saveToHermes = '💾 Lưu vào Hermes';
+  static const String saving = 'Đang lưu…';
+  static const String savedToBrain = 'Đã lưu vào Second Brain';
+  static const String saveFailed = 'Không lưu được — kiểm tra kết nối Hub';
+  static const String videoFailed = 'Không mở được video';
 
   static const String tipSettings = 'Cài đặt';
   static const String tipKeyboard = 'Nhập văn bản';

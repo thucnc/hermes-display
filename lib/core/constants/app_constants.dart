@@ -1,3 +1,5 @@
+import '../state/brain_mode.dart';
+
 /// Default hub connection values used until the user configures their own.
 abstract final class HubDefaults {
   static const String scheme = 'ws';
@@ -7,6 +9,10 @@ abstract final class HubDefaults {
   static const double wakeSensitivity = 0.8;
   static const String wakeKeyword = 'HEY SEN';
   static const bool alwaysListening = true;
+  static const String geminiApiKey = '';
+
+  /// Effective only once a Gemini key is set; the hub otherwise.
+  static const BrainMode brainMode = BrainMode.gemini;
 }
 
 /// Accepted ranges for user-editable settings.
@@ -98,4 +104,19 @@ abstract final class DimTiming {
 
   /// How long a touch keeps a dimmed screen at full brightness.
   static const Duration touchHold = Duration(seconds: 30);
+}
+
+abstract final class GeminiDefaults {
+  static const String host = 'generativelanguage.googleapis.com';
+  static const String model = 'gemini-3.8-flash';
+  static const String pathPrefix = '/v1beta/models/';
+  static const String action = ':generateContent';
+  static const Duration timeout = Duration(seconds: 30);
+}
+
+/// Hub HTTP endpoint for "Save to Hermes"; shares the WebSocket host:port.
+abstract final class SyncDefaults {
+  static const String scheme = 'http';
+  static const String savePath = '/save';
+  static const Duration timeout = Duration(seconds: 10);
 }

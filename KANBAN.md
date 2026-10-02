@@ -28,6 +28,16 @@ Last Updated: 2026-10-01 14:45
 
 ## Review
 
+- [ ] **KB-009**: Tích hợp Gemini 3.8 Flash Direct + Google Search Grounding, Rich Media Cards (YouTube/Recipe), và Save-to-Hermes Sync
+  - Priority: Critical
+  - Assignee: claude-code (opus-5-5)
+  - Completed: 2026-10-02
+  - Tests: 170/170 (141 cũ + 29 mới), 0 analyze issues, debug APK builds.
+  - Client: `GeminiService` (Google Search grounding, YouTube videoId parser), `RichCard` (YouTube preview + Recipe steps), `HermesSyncService` (save to Obsidian).
+  - Hub: `/save` endpoint on `bridge.py` & `display_hub.py` saves to `~/Documents/codebase/second-brain/Knowledge/<Category>/<Title>.md`. 11/11 tests pass.
+  - Settings: Brain mode toggle (`Hub` vs `Gemini Direct`) + obscured `geminiApiKey`.
+  - Tags: #gemini #youtube #recipe #grounding #second-brain
+
 - [ ] **KB-008**: Hub-side TTS streaming & audio playback on client, wake-word threshold tuning & visual mic indicator
   - Priority: Critical
   - Assignee: claude-code (opus-5-5)

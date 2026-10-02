@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_constants.dart';
 import '../../core/dimming/dim_schedule.dart';
+import '../../core/state/brain_mode.dart';
 import '../../core/state/display_controller.dart';
 import '../../services/audio/wake_model_installer.dart';
 import '../../services/settings_service.dart';
@@ -57,6 +58,11 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   late final TextEditingController _keyword = TextEditingController(
     text: _initial.wakeKeyword,
   );
+  late final TextEditingController _geminiKey = TextEditingController(
+    text: _initial.geminiApiKey,
+  );
+  late BrainMode _brain = _initial.brainMode;
+  bool _keyVisible = false;
   late double _slideSec = _initial.slideIntervalSec.toDouble();
   late double _sensitivity = _initial.wakeSensitivity;
   late bool _alwaysListening = _initial.alwaysListening;
@@ -68,6 +74,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     _host.dispose();
     _port.dispose();
     _keyword.dispose();
+    _geminiKey.dispose();
     super.dispose();
   }
 
@@ -83,6 +90,8 @@ class _SettingsSheetState extends State<_SettingsSheet> {
       wakeKeyword: _keyword.text,
       alwaysListening: _alwaysListening,
       dim: _dim,
+      geminiApiKey: _geminiKey.text,
+      brainMode: _brain,
     );
   }
 
@@ -166,6 +175,8 @@ class _SettingsSheetState extends State<_SettingsSheet> {
               const SizedBox(height: Spacing.md),
               _probeRow(),
               const SizedBox(height: Spacing.lg),
+              ..._brainSection(),
+              const SizedBox(height: Spacing.lg),
               _sliderTile(
                 label: AppStrings.slideInterval,
                 valueLabel: '${_slideSec.round()} ${AppStrings.secondsSuffix}',
@@ -228,6 +239,55 @@ class _SettingsSheetState extends State<_SettingsSheet> {
         ),
       ),
     );
+  }
+
+  List<Widget> _brainSection() {
+    final noKey = _geminiKey.text.trim().isEmpty;
+    final hint = _brain == BrainMode.gemini && noKey
+        ? AppStrings.brainNoKey
+        : AppStrings.brainVoiceHint;
+    return [
+      const Text(AppStrings.brainTitle),
+      const SizedBox(height: Spacing.sm),
+      SegmentedButton<BrainMode>(
+        segments: const [
+          ButtonSegment(
+            value: BrainMode.hub,
+            label: Text(AppStrings.brainHub),
+            icon: Icon(Icons.hub_rounded),
+          ),
+          ButtonSegment(
+            value: BrainMode.gemini,
+            label: Text(AppStrings.brainGemini),
+            icon: Icon(Icons.auto_awesome_rounded),
+          ),
+        ],
+        selected: {_brain},
+        onSelectionChanged: (picked) => setState(() => _brain = picked.first),
+      ),
+      const SizedBox(height: Spacing.md),
+      TextFormField(
+        controller: _geminiKey,
+        obscureText: !_keyVisible,
+        autocorrect: false,
+        enableSuggestions: false,
+        onChanged: (_) => setState(() {}),
+        decoration: InputDecoration(
+          labelText: AppStrings.geminiKey,
+          helperText: hint,
+          border: const OutlineInputBorder(),
+          suffixIcon: IconButton(
+            tooltip: _keyVisible ? AppStrings.hideKey : AppStrings.showKey,
+            icon: Icon(
+              _keyVisible
+                  ? Icons.visibility_off_rounded
+                  : Icons.visibility_rounded,
+            ),
+            onPressed: () => setState(() => _keyVisible = !_keyVisible),
+          ),
+        ),
+      ),
+    ];
   }
 
   List<Widget> _dimSection() {

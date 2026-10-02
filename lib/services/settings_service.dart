@@ -2,6 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants/app_constants.dart';
 import '../core/dimming/dim_schedule.dart';
+import '../core/state/brain_mode.dart';
 import 'audio/wake_detector.dart';
 
 class HubSettings {
@@ -13,6 +14,8 @@ class HubSettings {
     required this.wakeKeyword,
     required this.alwaysListening,
     this.dim = DimSettings.defaults,
+    this.geminiApiKey = HubDefaults.geminiApiKey,
+    this.brainMode = HubDefaults.brainMode,
   });
 
   static const HubSettings defaults = HubSettings(
@@ -23,6 +26,8 @@ class HubSettings {
     wakeKeyword: HubDefaults.wakeKeyword,
     alwaysListening: HubDefaults.alwaysListening,
     dim: DimSettings.defaults,
+    geminiApiKey: HubDefaults.geminiApiKey,
+    brainMode: HubDefaults.brainMode,
   );
 
   final String host;
@@ -37,7 +42,30 @@ class HubSettings {
   /// Night dimming window for the app's screen.
   final DimSettings dim;
 
+  /// Google AI Studio key for direct Gemini calls; empty means none.
+  final String geminiApiKey;
+
+  /// Preferred brain; see [activeBrain] for the one actually used.
+  final BrainMode brainMode;
+
+  /// Gemini only when chosen and a key exists, otherwise the hub.
+  BrainMode get activeBrain {
+    if (brainMode == BrainMode.gemini && geminiApiKey.isNotEmpty) {
+      return BrainMode.gemini;
+    }
+    return BrainMode.hub;
+  }
+
   Uri get wsUri => Uri(scheme: HubDefaults.scheme, host: host, port: port);
+
+  Uri get saveUri {
+    return Uri(
+      scheme: SyncDefaults.scheme,
+      host: host,
+      port: port,
+      path: SyncDefaults.savePath,
+    );
+  }
 
   Duration get slideInterval => Duration(seconds: slideIntervalSec);
 
@@ -57,6 +85,8 @@ class HubSettings {
     String? wakeKeyword,
     bool? alwaysListening,
     DimSettings? dim,
+    String? geminiApiKey,
+    BrainMode? brainMode,
   }) {
     return HubSettings(
       host: host ?? this.host,
@@ -66,6 +96,8 @@ class HubSettings {
       wakeKeyword: wakeKeyword ?? this.wakeKeyword,
       alwaysListening: alwaysListening ?? this.alwaysListening,
       dim: dim ?? this.dim,
+      geminiApiKey: geminiApiKey ?? this.geminiApiKey,
+      brainMode: brainMode ?? this.brainMode,
     );
   }
 
@@ -88,6 +120,8 @@ class HubSettings {
       wakeKeyword: keyword.isEmpty ? HubDefaults.wakeKeyword : keyword,
       alwaysListening: alwaysListening,
       dim: dim.normalized(),
+      geminiApiKey: geminiApiKey.trim(),
+      brainMode: brainMode,
     );
   }
 }
@@ -103,6 +137,8 @@ abstract final class _PrefKey {
   static const String dimStart = 'dim_start_hour';
   static const String dimEnd = 'dim_end_hour';
   static const String dimLevel = 'dim_level';
+  static const String geminiApiKey = 'gemini_api_key';
+  static const String brainMode = 'brain_mode';
 }
 
 class SettingsService {
@@ -129,6 +165,11 @@ class SettingsService {
       alwaysListening:
           _prefs.getBool(_PrefKey.alwaysListening) ?? fallback.alwaysListening,
       dim: _loadDim(fallback.dim),
+      geminiApiKey:
+          _prefs.getString(_PrefKey.geminiApiKey) ?? fallback.geminiApiKey,
+      brainMode:
+          BrainMode.fromName(_prefs.getString(_PrefKey.brainMode)) ??
+          fallback.brainMode,
     ).normalized();
   }
 
@@ -154,6 +195,8 @@ class SettingsService {
       _prefs.setInt(_PrefKey.dimStart, value.dim.startHour),
       _prefs.setInt(_PrefKey.dimEnd, value.dim.endHour),
       _prefs.setDouble(_PrefKey.dimLevel, value.dim.level),
+      _prefs.setString(_PrefKey.geminiApiKey, value.geminiApiKey),
+      _prefs.setString(_PrefKey.brainMode, value.brainMode.name),
     ]);
   }
 }

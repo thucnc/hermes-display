@@ -12,10 +12,13 @@ import 'package:hermes_display/ui/screens/ambient_screen.dart';
 import 'package:hermes_display/ui/strings.dart';
 import 'package:hermes_display/ui/theme/app_theme.dart';
 import 'package:hermes_display/ui/widgets/photo_slideshow.dart';
+import 'package:hermes_display/ui/widgets/rich_card.dart';
 import 'package:hermes_display/ui/widgets/status_badge.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/fake_gemini_service.dart';
 import 'support/fake_screen.dart';
+import 'support/fake_sync.dart';
 import 'support/fake_transport.dart';
 import 'support/fake_voice.dart';
 
@@ -187,5 +190,49 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       controller.dispose();
     });
+  });
+
+  testWidgets('Gemini recipe shows a rich card that saves and stays', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({'gemini_api_key': 'key'});
+    final gemini = FakeGeminiService();
+    final sync = FakeSync();
+    final controller = DisplayController(
+      settingsService: await SettingsService.create(),
+      client: HermesWebSocketClient(
+        transportFactory: FakeTransportFactory().call,
+      ),
+      gemini: gemini,
+      sync: sync,
+      links: FakeLinks(),
+    )..start();
+    await tester.pumpWidget(
+      HermesApp(controller: controller, photos: const []),
+    );
+    await tester.pump();
+
+    controller.sendText('trứng chiên');
+    gemini.answer('1. Đập trứng.\n2. Chiên vàng.');
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(RichCard), findsOneWidget);
+
+    await tester.tap(find.text(AppStrings.saveToHermes));
+    await tester.pump();
+    await tester.pump();
+    expect(sync.saved.single.$2.title, 'trứng chiên');
+    expect(find.text(AppStrings.savedToBrain), findsOneWidget);
+
+    controller.cancel();
+    await tester.pump();
+    expect(find.byType(RichCard), findsOneWidget);
+
+    await tester.tap(find.byTooltip(AppStrings.tipClose));
+    await tester.pump();
+    expect(find.byType(RichCard), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+    controller.dispose();
   });
 }

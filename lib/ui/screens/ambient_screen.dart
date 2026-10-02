@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/media/rich_content.dart';
 import '../../core/state/display_controller.dart';
 import '../../core/state/display_state.dart';
 import '../../services/wake_word_service.dart';
@@ -9,6 +10,7 @@ import '../widgets/ambient_clock.dart';
 import '../widgets/legibility_scrim.dart';
 import '../widgets/photo_slideshow.dart';
 import '../widgets/quick_input_bar.dart';
+import '../widgets/rich_card.dart';
 import '../widgets/settings_sheet.dart';
 import '../widgets/status_badge.dart';
 import '../widgets/voice_overlay.dart';
@@ -46,7 +48,8 @@ class AmbientScreen extends StatelessWidget {
 
   Widget _layers(BuildContext context) {
     final state = controller.state;
-    final active = state != DisplayState.idle;
+    final card = _richCard(context, state);
+    final active = state != DisplayState.idle || card != null;
     final settings = controller.settings;
     final night = controller.nightDimmed.value ? nightOpacity : 1.0;
     return LayoutBuilder(
@@ -72,7 +75,7 @@ class AmbientScreen extends StatelessWidget {
               minimum: const EdgeInsets.all(Spacing.xl),
               child: Stack(
                 children: [
-                  _overlay(state),
+                  if (card == null) _overlay(state),
                   Align(
                     alignment: Alignment.topLeft,
                     child: StatusBadge(
@@ -105,6 +108,7 @@ class AmbientScreen extends StatelessWidget {
                       onMic: controller.listen,
                     ),
                   ),
+                  ?card,
                 ],
               ),
             ),
@@ -120,6 +124,37 @@ class AmbientScreen extends StatelessWidget {
     VoiceStatus.manualOnly => MicIndicator.manual,
     _ => MicIndicator.unavailable,
   };
+
+  /// Replaces the subtitle while speaking and stays on the idle screen
+  /// until dismissed or the next turn starts. Topmost so the clock never
+  /// takes its taps.
+  Widget? _richCard(BuildContext context, DisplayState state) {
+    final rich = controller.rich;
+    final showRich =
+        state == DisplayState.speaking || state == DisplayState.idle;
+    if (rich == null || !showRich) {
+      return null;
+    }
+    return Center(
+      child: RichCard(
+        key: ValueKey(rich),
+        content: rich,
+        onPlay: (video) => _play(context, video),
+        onSave: controller.saveRich,
+        onClose: controller.dismissRich,
+      ),
+    );
+  }
+
+  Future<void> _play(BuildContext context, YouTubeVideo video) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (await controller.openVideo(video)) {
+      return;
+    }
+    messenger?.showSnackBar(
+      const SnackBar(content: Text(AppStrings.videoFailed)),
+    );
+  }
 
   Widget _overlay(DisplayState state) {
     return IgnorePointer(

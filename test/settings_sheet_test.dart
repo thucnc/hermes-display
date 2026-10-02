@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_display/core/state/brain_mode.dart';
 import 'package:hermes_display/core/state/display_controller.dart';
 import 'package:hermes_display/services/hermes_websocket_client.dart';
 import 'package:hermes_display/services/settings_service.dart';
@@ -94,5 +95,25 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.settings.dim.startHour, 22);
     expect(controller.settings.dim.enabled, isFalse);
+  });
+
+  testWidgets('saves the Gemini key (obscured) and brain mode', (tester) async {
+    await open(tester);
+    final keyField = find.widgetWithText(TextFormField, AppStrings.geminiKey);
+    await tester.ensureVisible(keyField);
+    await tester.enterText(keyField, 'AIza-secret');
+    final editable = tester.widget<EditableText>(
+      find.descendant(of: keyField, matching: find.byType(EditableText)),
+    );
+    expect(editable.obscureText, isTrue);
+
+    await tester.ensureVisible(find.text(AppStrings.brainHub));
+    await tester.tap(find.text(AppStrings.brainHub));
+    await tester.pump();
+    await tester.ensureVisible(find.text(AppStrings.save));
+    await tester.tap(find.text(AppStrings.save));
+    await tester.pumpAndSettle();
+    expect(controller.settings.geminiApiKey, 'AIza-secret');
+    expect(controller.settings.brainMode, BrainMode.hub);
   });
 }

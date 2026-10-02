@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_display/core/constants/app_constants.dart';
+import 'package:hermes_display/core/state/brain_mode.dart';
 import 'package:hermes_display/core/dimming/dim_schedule.dart';
 import 'package:hermes_display/services/settings_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -71,5 +72,30 @@ void main() {
     final dim = (await SettingsService.create()).load().dim;
     expect(dim.startHour, DimLimits.minHour);
     expect(dim.level, DimLimits.maxLevel);
+  });
+
+  test('brain: gemini by default only once a key is stored', () async {
+    SharedPreferences.setMockInitialValues({});
+    final service = await SettingsService.create();
+    final fresh = service.load();
+    expect(fresh.geminiApiKey, isEmpty);
+    expect(fresh.brainMode, BrainMode.gemini);
+    expect(fresh.activeBrain, BrainMode.hub);
+
+    await service.save(fresh.copyWith(geminiApiKey: '  AIza-key '));
+    final keyed = service.load();
+    expect(keyed.geminiApiKey, 'AIza-key');
+    expect(keyed.activeBrain, BrainMode.gemini);
+
+    await service.save(keyed.copyWith(brainMode: BrainMode.hub));
+    expect(service.load().activeBrain, BrainMode.hub);
+  });
+
+  test('save URI targets the hub over http', () {
+    final settings = HubSettings.defaults.copyWith(
+      host: '10.0.0.2',
+      port: 8901,
+    );
+    expect(settings.saveUri.toString(), 'http://10.0.0.2:8901/save');
   });
 }
