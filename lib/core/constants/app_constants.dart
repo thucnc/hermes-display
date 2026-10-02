@@ -153,7 +153,7 @@ abstract final class GeminiLiveDefaults {
   static const Duration startBuffer = Duration(milliseconds: 600);
 
   /// Idle session closed after this; the next wake reconnects.
-  static const Duration keepWarm = Duration(minutes: 2);
+  static const Duration keepWarm = Duration(minutes: 5);
 }
 
 /// Hub HTTP endpoint for "Save to Hermes"; shares the WebSocket host:port.

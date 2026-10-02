@@ -137,6 +137,7 @@ class DisplayController extends ChangeNotifier {
   final PcmPlayer? _pcm;
   final ChatThreadService _threads;
   ChatThread? _activeThread;
+  DateTime? _lastInteraction;
 
   ChatThread? get activeThread => _activeThread;
   ChatThreadService get threadService => _threads;
@@ -648,6 +649,8 @@ class DisplayController extends ChangeNotifier {
     if (id == _settings.activeMemberId || !_registry.has(id)) {
       return;
     }
+    _activeThread = null;
+    _closeLive();
     _settings = _settings.copyWith(activeMemberId: id);
     _photos.setMember(id);
     notifyListeners();
@@ -926,6 +929,13 @@ class DisplayController extends ChangeNotifier {
     if (q.isEmpty && a.isEmpty) return;
 
     try {
+      final now = DateTime.now();
+      if (_lastInteraction != null &&
+          now.difference(_lastInteraction!).inMinutes >= 2) {
+        _activeThread = null;
+      }
+      _lastInteraction = now;
+
       _activeThread ??= await _threads.createThread(
         member.id,
         initialTitle: q.isNotEmpty ? q : a,
@@ -1046,6 +1056,7 @@ class DisplayController extends ChangeNotifier {
       return;
     }
     if (next == DisplayState.listening) {
+      _isFarewellTurn = false;
       _capturePcm.clear();
       _transcript = '';
       _reply = '';
