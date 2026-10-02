@@ -4,7 +4,7 @@ abstract final class HubDefaults {
   static const String host = 'localhost';
   static const int port = 8900;
   static const int slideIntervalSec = 20;
-  static const double wakeSensitivity = 0.7;
+  static const double wakeSensitivity = 0.8;
   static const String wakeKeyword = 'HEY SEN';
   static const bool alwaysListening = true;
 }

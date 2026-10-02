@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/state/display_controller.dart';
 import '../../core/state/display_state.dart';
+import '../../services/wake_word_service.dart';
 import '../strings.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ambient_clock.dart';
@@ -78,6 +79,7 @@ class AmbientScreen extends StatelessWidget {
                       status: controller.connection,
                       address: '${settings.host}:${settings.port}',
                       onTap: controller.reconnect,
+                      mic: _micFor(controller.voiceStatus),
                     ),
                   ),
                   Align(
@@ -111,6 +113,13 @@ class AmbientScreen extends StatelessWidget {
       },
     );
   }
+
+  static MicIndicator? _micFor(VoiceStatus? status) => switch (status) {
+    null => null,
+    VoiceStatus.ready => MicIndicator.armed,
+    VoiceStatus.manualOnly => MicIndicator.manual,
+    _ => MicIndicator.unavailable,
+  };
 
   Widget _overlay(DisplayState state) {
     return IgnorePointer(

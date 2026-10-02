@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../services/audio/keyword_tokens.dart' as tokens;
 import '../../services/audio/mic_keep_alive.dart';
+import '../../services/audio/tts_player.dart';
 import '../../services/audio/wake_model_installer.dart';
 import '../../services/hermes_websocket_client.dart';
 import '../../services/night_dimmer.dart';
@@ -30,6 +31,7 @@ class DisplayController extends ChangeNotifier {
     WakeModelInstaller? installer,
     ScreenControl? screen,
     NightDimmer? dimmer,
+    TtsPlayer? tts,
   }) : _settingsService = settingsService,
        _client = client,
        _voice = voice,
@@ -37,6 +39,7 @@ class DisplayController extends ChangeNotifier {
        _installer = installer,
        _screen = screen,
        _dimmer = dimmer,
+       _tts = tts,
        _settings = settingsService.load();
 
   final SettingsService _settingsService;
@@ -57,6 +60,9 @@ class DisplayController extends ChangeNotifier {
 
   /// Null: no night dimming.
   final NightDimmer? _dimmer;
+
+  /// Null: replies are shown, never spoken.
+  final TtsPlayer? _tts;
   static final ValueNotifier<bool> _neverDimmed = ValueNotifier<bool>(false);
   final List<StreamSubscription<Object?>> _subscriptions = [];
   final ValueNotifier<double> _level = ValueNotifier<double>(0);
@@ -88,8 +94,14 @@ class DisplayController extends ChangeNotifier {
   /// True inside the night window while no turn or touch holds brightness.
   ValueListenable<bool> get nightDimmed => _dimmer?.dimmed ?? _neverDimmed;
 
-  /// Any touch on the display: full brightness for a short while.
-  void touch() => _dimmer?.touch();
+  /// Any touch on the display: full brightness for a short while, and
+  /// silences a reply being spoken.
+  void touch() {
+    _dimmer?.touch();
+    _stopSpeech();
+  }
+
+  bool get _speaking => _tts?.isPlaying ?? false;
 
   InstallProgress get modelProgress {
     return _installer?.progress.value ?? InstallProgress.idle;
@@ -111,6 +123,10 @@ class DisplayController extends ChangeNotifier {
     _subscriptions
       ..add(_client.messages.listen(_onMessage))
       ..add(_client.statusChanges.listen(_onStatus));
+    final tts = _tts;
+    if (tts != null) {
+      _subscriptions.add(tts.onComplete.listen(_onSpoken));
+    }
     _client.connect(_settings.wsUri);
     _dimmer?.start(_settings.dim);
     _startVoice();
@@ -202,6 +218,7 @@ class DisplayController extends ChangeNotifier {
 
   /// Mic button and wake word entry point: cue, listening, then capture.
   Future<ListenResult> listen() async {
+    _stopSpeech();
     final voice = _voice;
     if (voice == null) {
       return wake() ? ListenResult.started : ListenResult.offline;
@@ -279,6 +296,9 @@ class DisplayController extends ChangeNotifier {
 
   void _onEnter(DisplayState next) {
     _armWatchdog(next);
+    if (next != DisplayState.speaking) {
+      _stopSpeech();
+    }
     if (next != DisplayState.listening) {
       unawaited(_voice?.endCapture());
     }
@@ -308,18 +328,48 @@ class DisplayController extends ChangeNotifier {
     if (current == DisplayState.idle) {
       return;
     }
-    _watchdog = Timer(StateTiming.activeTimeout, _forceIdle);
+    _watchdog = Timer(StateTiming.activeTimeout, _onWatchdog);
+  }
+
+  /// A long spoken reply is progress, not a silent hub.
+  void _onWatchdog() {
+    if (_speaking) {
+      _armWatchdog(_state);
+      return;
+    }
+    _forceIdle();
+  }
+
+  void _stopSpeech() {
+    if (!_speaking) {
+      return;
+    }
+    unawaited(_tts?.stop());
+  }
+
+  void _onSpoken(void _) {
+    if (_state != DisplayState.speaking) {
+      return;
+    }
+    transition(DisplayState.idle);
   }
 
   void _onMessage(HermesMessage message) {
     _armWatchdog(_state);
     switch (message) {
       case StateMessage(:final state):
+        // The hub guesses speech length; playback end decides instead.
+        if (state == DisplayState.idle && _speaking) {
+          return;
+        }
         transition(state);
-      case SpeechMessage(:final text):
+      case SpeechMessage(:final text, :final audioBytes):
         _reply = text;
         if (!transition(DisplayState.speaking)) {
           notifyListeners();
+        }
+        if (audioBytes != null && _state == DisplayState.speaking) {
+          unawaited(_tts?.play(audioBytes));
         }
       case TranscriptMessage(:final text):
         _transcript = text;
@@ -444,6 +494,7 @@ class DisplayController extends ChangeNotifier {
     _dimmer?.dispose();
     _client.dispose();
     _voice?.dispose();
+    unawaited(_tts?.dispose());
     _level.dispose();
     super.dispose();
   }

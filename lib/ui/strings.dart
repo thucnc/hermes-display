@@ -6,6 +6,10 @@ abstract final class AppStrings {
   static const String statusConnecting = 'Đang kết nối…';
   static const String statusDisconnected = 'Mất kết nối';
 
+  static const String micArmed = 'Đang chờ "Hey Sen"';
+  static const String micManual = 'Chỉ dùng nút micro';
+  static const String micOff = 'Micro không khả dụng';
+
   static const String listening = 'Đang nghe…';
   static const String thinking = 'Đang suy nghĩ…';
 

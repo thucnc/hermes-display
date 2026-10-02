@@ -228,6 +228,22 @@ void main() {
     expect(loosest.threshold, lessThanOrEqualTo(measuredFloor));
   });
 
+  test('defaults accept Vietnamese "Hey Sen" pronunciation', () {
+    const vietnameseCeiling = 0.1;
+    const loosestTarget = 0.05;
+    final byDefault = WakeConfig(
+      keyword: HubDefaults.wakeKeyword,
+      sensitivity: HubDefaults.wakeSensitivity,
+    );
+    final loosest = WakeConfig(
+      keyword: HubDefaults.wakeKeyword,
+      sensitivity: SettingsLimits.maxSensitivity,
+    );
+    expect(HubDefaults.wakeSensitivity, 0.8);
+    expect(byDefault.threshold, closeTo(vietnameseCeiling, 1e-9));
+    expect(loosest.threshold, closeTo(loosestTarget, 1e-9));
+  });
+
   test('sensitivity maps onto spotter threshold', () {
     const loose = WakeConfig(keyword: 'X', sensitivity: 1);
     const strict = WakeConfig(keyword: 'X', sensitivity: 0);

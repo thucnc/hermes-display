@@ -28,6 +28,18 @@ Last Updated: 2026-10-01 14:45
 
 ## Review
 
+- [ ] **KB-008**: Hub-side TTS streaming & audio playback on client, wake-word threshold tuning & visual mic indicator
+  - Priority: Critical
+  - Assignee: claude-code (opus-5-5)
+  - Completed: 2026-10-02
+  - Tests: 141/141 (126 cũ + 15 mới), 0 analyze issues, debug APK builds.
+  - Hub: synthesized speech via `bridge.run_tts()` in executor, base64 MP3 in `tts` message. 11/11 tests pass.
+  - Client: `TtsPlayer` (`audioplayers` BytesSource), `SpeechMessage.audioBytes`, stops on interrupt/cancel, auto-idle on complete.
+  - Wake-word: default sensitivity 0.8, threshold ~0.10.
+  - UI: `StatusBadge` mic indicator (armed = green, manual = grey, unavailable = orange).
+  - Unverified: real audio playback on MatePad hardware, self-trigger when reply contains "Sen".
+  - Tags: #tts #audio #wakeword #ux
+
 - [ ] **KB-007**: Giảm sáng ban đêm & bật màn hình khi gọi "Hey Sen"
   - Priority: Medium
   - Assignee: claude-code (opus-5-5)

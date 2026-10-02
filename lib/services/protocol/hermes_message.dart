@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import '../../core/state/display_state.dart';
 
@@ -9,6 +10,7 @@ abstract final class WireKey {
   static const String text = 'text';
   static const String level = 'level';
   static const String isFinal = 'final';
+  static const String audio = 'audio';
 }
 
 /// Message `type` values. Incoming: state, tts, transcript, level, error.
@@ -36,8 +38,11 @@ final class StateMessage extends HermesMessage {
 }
 
 final class SpeechMessage extends HermesMessage {
-  const SpeechMessage(this.text);
+  const SpeechMessage(this.text, {this.audioBytes});
   final String text;
+
+  /// Hub-synthesized MP3 of [text]; null when TTS failed on the hub.
+  final Uint8List? audioBytes;
 }
 
 final class TranscriptMessage extends HermesMessage {
@@ -90,7 +95,10 @@ abstract final class HermesCodec {
         final state = DisplayState.fromWire(_string(map[WireKey.state]));
         return state == null ? null : StateMessage(state);
       case WireType.tts:
-        return text == null ? null : SpeechMessage(text);
+        if (text == null) {
+          return null;
+        }
+        return SpeechMessage(text, audioBytes: _bytes(map[WireKey.audio]));
       case WireType.transcript:
         final isFinal = map[WireKey.isFinal] == true;
         return text == null ? null : TranscriptMessage(text, isFinal: isFinal);
@@ -107,4 +115,16 @@ abstract final class HermesCodec {
   }
 
   static String? _string(Object? value) => value is String ? value : null;
+
+  /// Base64 payload; a corrupt one drops the audio, never the message.
+  static Uint8List? _bytes(Object? value) {
+    if (value is! String) {
+      return null;
+    }
+    try {
+      return base64Decode(value);
+    } on FormatException {
+      return null;
+    }
+  }
 }

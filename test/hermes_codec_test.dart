@@ -14,7 +14,29 @@ void main() {
 
     test('parses tts text', () {
       final msg = HermesCodec.decode('{"type":"tts","text":"Xin chào"}');
-      expect((msg! as SpeechMessage).text, 'Xin chào');
+      final speech = msg! as SpeechMessage;
+      expect(speech.text, 'Xin chào');
+      expect(speech.audioBytes, isNull);
+    });
+
+    test('parses tts audio from base64', () {
+      final mp3 = [0x49, 0x44, 0x33, 0x03, 0xff];
+      final raw = jsonEncode({
+        WireKey.type: WireType.tts,
+        WireKey.text: 'Xin chào',
+        WireKey.audio: base64Encode(mp3),
+      });
+      final speech = HermesCodec.decode(raw)! as SpeechMessage;
+      expect(speech.text, 'Xin chào');
+      expect(speech.audioBytes, mp3);
+    });
+
+    test('keeps tts text when audio is malformed', () {
+      final speech =
+          HermesCodec.decode('{"type":"tts","text":"hi","audio":"%%%"}')!
+              as SpeechMessage;
+      expect(speech.text, 'hi');
+      expect(speech.audioBytes, isNull);
     });
 
     test('parses final transcript', () {

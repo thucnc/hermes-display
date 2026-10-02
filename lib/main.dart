@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'app.dart';
 import 'core/state/display_controller.dart';
 import 'services/audio/mic_keep_alive.dart';
+import 'services/audio/tts_player.dart';
 import 'services/audio/wake_model_installer.dart';
 import 'services/hermes_websocket_client.dart';
 import 'services/night_dimmer.dart';
@@ -29,6 +30,7 @@ Future<void> main() async {
     installer: installer,
     screen: screen,
     dimmer: dimmer,
+    tts: DeviceTtsPlayer(),
   )..start();
   runApp(HermesApp(controller: controller));
 }
