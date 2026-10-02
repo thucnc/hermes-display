@@ -183,8 +183,8 @@ void main() {
       build();
       await opened();
       sockets.last
-        ..push('{"serverContent":{"inputAudioTranscription":{"text":"mấy giờ"}}}')
-        ..push('{"serverContent":{"outputAudioTranscription":{"text":"Ba giờ"}}}')
+        ..push('{"serverContent":{"inputTranscription":{"text":"mấy giờ"}}}')
+        ..push('{"serverContent":{"outputTranscription":{"text":"Ba giờ"}}}')
         ..push('{"serverContent":{"interrupted":true}}')
         ..push('{"serverContent":{"turnComplete":true}}')
         ..push('not json');

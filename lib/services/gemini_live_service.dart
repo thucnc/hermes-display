@@ -88,8 +88,8 @@ abstract final class _Key {
   static const String serverContent = 'serverContent';
   static const String modelTurn = 'modelTurn';
   static const String inlineData = 'inlineData';
-  static const String heard = 'inputAudioTranscription';
-  static const String said = 'outputAudioTranscription';
+  static const String heard = 'inputTranscription';
+  static const String said = 'outputTranscription';
   static const String interrupted = 'interrupted';
   static const String turnComplete = 'turnComplete';
 }

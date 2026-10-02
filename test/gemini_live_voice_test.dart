@@ -144,7 +144,7 @@ void main() {
     await build();
     await openLive();
     await talk();
-    sockets.last.push(said('inputAudioTranscription', 'chiên trứng thế nào'));
+    sockets.last.push(said('inputTranscription', 'chiên trứng thế nào'));
     await stopTalking();
     expect(controller.state, DisplayState.thinking);
     expect(liveSent().last, {
@@ -154,8 +154,8 @@ void main() {
 
     sockets.last
       ..push(audio([1, 2, 3, 4]))
-      ..push(said('outputAudioTranscription', '1. Đập trứng.\n'))
-      ..push(said('outputAudioTranscription', '2. Chiên vàng.'));
+      ..push(said('outputTranscription', '1. Đập trứng.\n'))
+      ..push(said('outputTranscription', '2. Chiên vàng.'));
     await pumpEventQueue();
     expect(controller.state, DisplayState.speaking);
     expect(pcm.chunks.single, [1, 2, 3, 4]);
