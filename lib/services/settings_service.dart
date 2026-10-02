@@ -20,6 +20,7 @@ class HubSettings {
     this.activeMemberId = HubDefaults.activeMemberId,
     this.knowledgePackUrl = HubDefaults.knowledgePackUrl,
     this.updateUrl = HubDefaults.updateUrl,
+    this.photoManifestUrl = HubDefaults.photoManifestUrl,
   });
 
   static const HubSettings defaults = HubSettings(
@@ -35,6 +36,7 @@ class HubSettings {
     activeMemberId: HubDefaults.activeMemberId,
     knowledgePackUrl: HubDefaults.knowledgePackUrl,
     updateUrl: HubDefaults.updateUrl,
+    photoManifestUrl: HubDefaults.photoManifestUrl,
   );
 
   final String host;
@@ -64,6 +66,8 @@ class HubSettings {
 
   /// `latest.json`-style endpoint for APK updates; empty means the hub.
   final String updateUrl;
+  /// Where `photos.json` is downloaded from; empty means placeholders.
+  final String photoManifestUrl;
 
   /// Gemini only when chosen and a key exists, otherwise the hub.
   BrainMode get activeBrain {
@@ -131,6 +135,7 @@ class HubSettings {
     String? activeMemberId,
     String? knowledgePackUrl,
     String? updateUrl,
+    String? photoManifestUrl,
   }) {
     return HubSettings(
       host: host ?? this.host,
@@ -145,6 +150,7 @@ class HubSettings {
       activeMemberId: activeMemberId ?? this.activeMemberId,
       knowledgePackUrl: knowledgePackUrl ?? this.knowledgePackUrl,
       updateUrl: updateUrl ?? this.updateUrl,
+      photoManifestUrl: photoManifestUrl ?? this.photoManifestUrl,
     );
   }
 
@@ -174,6 +180,7 @@ class HubSettings {
       activeMemberId: memberId.isEmpty ? HubDefaults.activeMemberId : memberId,
       knowledgePackUrl: knowledgePackUrl.trim(),
       updateUrl: updateUrl.trim(),
+      photoManifestUrl: photoManifestUrl.trim(),
     );
   }
 }
@@ -194,6 +201,7 @@ abstract final class _PrefKey {
   static const String activeMember = 'active_member_id';
   static const String packUrl = 'knowledge_pack_url';
   static const String updateUrl = 'update_url';
+  static const String photoUrl = 'photo_manifest_url';
 }
 
 class SettingsService {
@@ -230,6 +238,8 @@ class SettingsService {
       knowledgePackUrl:
           _prefs.getString(_PrefKey.packUrl) ?? fallback.knowledgePackUrl,
       updateUrl: _prefs.getString(_PrefKey.updateUrl) ?? fallback.updateUrl,
+      photoManifestUrl:
+          _prefs.getString(_PrefKey.photoUrl) ?? fallback.photoManifestUrl,
     ).normalized();
   }
 
@@ -260,6 +270,7 @@ class SettingsService {
       _prefs.setString(_PrefKey.activeMember, value.activeMemberId),
       _prefs.setString(_PrefKey.packUrl, value.knowledgePackUrl),
       _prefs.setString(_PrefKey.updateUrl, value.updateUrl),
+      _prefs.setString(_PrefKey.photoUrl, value.photoManifestUrl),
     ]);
   }
 }

@@ -155,6 +155,26 @@ Cài tay vẫn được: tải APK từ GitHub Releases và cài đè (giữ ngu
 
 **Thoát kỹ năng:** hỏi chuyện khác bất kỳ, hoặc chạm **✕ Đóng** trên thẻ.
 
+### 3.7. 🖼️ Khung ảnh gia đình & "Ngày này năm xưa"
+**Trên Mac mini** (cần `pip3 install pillow`):
+1. Bỏ ảnh vào `~/Pictures/SenFrame` (thư mục con thoải mái). Chú thích tuỳ chọn trong `~/Pictures/SenFrame/meta.yaml`:
+   ```yaml
+   IMG_0001.jpg:
+     caption: Bé Na đi sở thú
+     place: Thảo Cầm Viên
+     people: [be]        # id thành viên
+   ```
+2. Xuất: `python3 /Users/mac/hermes-voice-bridge/tools/export_photos.py` → `~/Pictures/SenFrame-export/` (`photos.json` + ảnh WebP 1080p + thumbnail). GPS và mọi EXIF bị xoá; ảnh không đổi được bỏ qua khi chạy lại.
+   - Dùng Apple Photos / Shared Album: `pip3 install osxphotos`, rồi `export_photos.py --adapter photos --album "Sen Frame" --people-map people.yaml` (`people.yaml`: `Na: be`). Ảnh chỉ có trên iCloud (chưa tải về Mac) bị bỏ qua.
+   - Chạy định kỳ bằng cron/launchd để ảnh mới tự lên khung.
+3. `display_hub.py` phát tại `http://<mac-ip>:8901/api/photos/manifest` (ETag/304). Cũng có thể đưa cả thư mục export lên host tĩnh bất kỳ.
+
+**Trên tablet:** Cài đặt → **URL Ảnh Gia Đình** → dán URL trên → **Lưu**. Để trống = ảnh mẫu.
+- **Ngày này năm xưa:** ảnh chụp đúng ngày/tháng của năm trước được chiếu đầu tiên, kèm huy hiệu *"Ngày này 3 năm trước (2023): Bé Na đi sở thú"*.
+- **Theo thành viên:** chọn avatar **Bé** → ảnh có `be` trong `people` được ưu tiên.
+- **Offline:** ảnh đã xem được lưu trên máy (tối đa ~300MB, xoá ảnh lâu chưa xem nhất). Mất mạng vẫn chiếu ảnh đã lưu; chưa có ảnh nào thì hiện nền màu.
+- **Hỏi về ảnh** (não Gemini): *"Sen ơi, ảnh này chụp ở đâu?"* → Sen trả lời theo chú thích, địa điểm, ngày chụp của ảnh đang hiển thị.
+
 ---
 
 ## 4. Tự tạo Kỹ năng & Tùy biến bằng Obsidian

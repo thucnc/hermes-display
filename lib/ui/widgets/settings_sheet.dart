@@ -79,6 +79,9 @@ class _SettingsSheetState extends State<_SettingsSheet> {
   );
   _UpdateProbe _updateProbe = _UpdateProbe.idle;
   UpdateCheck? _updateCheck;
+  late final TextEditingController _photoUrl = TextEditingController(
+    text: _initial.photoManifestUrl,
+  );
   _SyncState _sync = _SyncState.idle;
   SenPack? _synced;
   late BrainMode _brain = _initial.brainMode;
@@ -97,6 +100,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     _geminiKey.dispose();
     _packUrl.dispose();
     _updateUrl.dispose();
+    _photoUrl.dispose();
     super.dispose();
   }
 
@@ -116,6 +120,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
       brainMode: _brain,
       knowledgePackUrl: _packUrl.text,
       updateUrl: _updateUrl.text,
+      photoManifestUrl: _photoUrl.text,
     );
   }
 
@@ -206,6 +211,14 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     return AppStrings.invalidUpdateUrl;
   }
 
+  String? _validatePhotoUrl(String? value) {
+    final url = value?.trim() ?? '';
+    if (url.isEmpty || widget.controller.isPhotoUrl(url)) {
+      return null;
+    }
+    return AppStrings.invalidPackUrl;
+  }
+
   String? _validateKeyword(String? value) {
     return switch (widget.controller.checkKeyword(value ?? '')) {
       KeywordCheck.empty => AppStrings.invalidKeyword,
@@ -257,6 +270,18 @@ class _SettingsSheetState extends State<_SettingsSheet> {
               const SizedBox(height: Spacing.lg),
               ..._packSection(),
               const SizedBox(height: Spacing.lg),
+              TextFormField(
+                controller: _photoUrl,
+                validator: _validatePhotoUrl,
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: const InputDecoration(
+                  labelText: AppStrings.photoUrl,
+                  helperText: AppStrings.photoUrlHint,
+                  border: OutlineInputBorder(),
+                ),
+              ),
               ..._updateSection(),
               const SizedBox(height: Spacing.lg),
               _sliderTile(

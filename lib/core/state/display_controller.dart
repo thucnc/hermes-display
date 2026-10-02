@@ -12,6 +12,7 @@ import '../../services/hermes_sync_service.dart';
 import '../../services/hermes_websocket_client.dart';
 import '../../services/hub_tts_service.dart';
 import '../../services/night_dimmer.dart';
+import '../../services/photo_manifest_service.dart';
 import '../../services/protocol/hermes_message.dart';
 import '../../services/screen/screen_control.dart';
 import '../../services/sen_memory_service.dart';
@@ -25,6 +26,8 @@ import '../media/rich_content.dart';
 import '../media/spoken_summary.dart';
 import '../members/member_profile.dart';
 import '../pack/sen_pack_registry.dart';
+import '../photos/photo_context.dart';
+import '../photos/photo_frame.dart';
 import '../skills/sen_skill.dart';
 import '../skills/skill_content.dart';
 import 'brain_mode.dart';
@@ -53,6 +56,7 @@ class DisplayController extends ChangeNotifier {
     SenMemoryService? memory,
     SenPackService? pack,
     AppUpdater? updater,
+    PhotoFrame? photos,
   }) : _settingsService = settingsService,
        _client = client,
        _voice = voice,
@@ -67,6 +71,7 @@ class DisplayController extends ChangeNotifier {
        _memory = memory,
        _pack = pack,
        _updater = updater,
+       _photos = photos ?? PhotoFrame(),
        _settings = settingsService.load();
 
   final SettingsService _settingsService;
@@ -114,6 +119,9 @@ class DisplayController extends ChangeNotifier {
   Future<PackSyncResult>? _packRun;
   AppLifecycleListener? _lifecycle;
   final SenPackRegistry _registry = SenPackRegistry();
+
+  /// Slideshow state; Gemini sees the photo on screen when asked.
+  final PhotoFrame _photos;
   static final ValueNotifier<bool> _neverDimmed = ValueNotifier<bool>(false);
   final List<StreamSubscription<Object?>> _subscriptions = [];
   final ValueNotifier<double> _level = ValueNotifier<double>(0);
@@ -163,6 +171,8 @@ class DisplayController extends ChangeNotifier {
   List<MemberProfile> get members => _registry.members;
   VoiceStatus? get voiceStatus => _voiceStatus;
 
+  PhotoFrame get photos => _photos;
+
   /// Outcome of the last lock-screen wake/release call.
   ScreenResult? get screenResult => _screenResult;
 
@@ -209,6 +219,8 @@ class DisplayController extends ChangeNotifier {
     _dimmer?.start(_settings.dim);
     _startVoice();
     unawaited(_bootPack());
+    _photos.setMember(_settings.activeMemberId);
+    unawaited(_photos.boot(_settings.photoManifestUrl));
     _packTimer = Timer.periodic(
       SenPackDefaults.refreshEvery,
       (_) => unawaited(refreshPack()),
@@ -285,6 +297,7 @@ class DisplayController extends ChangeNotifier {
   Future<InstallResult> installUpdate() async {
     return await _updater?.install() ?? InstallResult.unsupported;
   }
+  bool isPhotoUrl(String url) => PhotoManifestService.parseUrl(url) != null;
 
   void _startVoice() {
     final voice = _voice;
@@ -452,8 +465,13 @@ class DisplayController extends ChangeNotifier {
       memory,
       ?skill?.instruction(member),
       if (skill == null) _registry.instructionFor(text, member, DateTime.now()),
+      if (PhotoQuestion.matches(text)) _photos.describe(nameOf: _memberName),
       if (recap != null && recap.kind == skill?.kind) recap.recap,
     ].where((part) => part.isNotEmpty).join(_contextGap);
+  }
+
+  String _memberName(String id) {
+    return _registry.has(id) ? _registry.byId(id).name : id;
   }
 
   /// Memory is a bonus; a broken database never blocks an answer.
@@ -517,6 +535,7 @@ class DisplayController extends ChangeNotifier {
       return;
     }
     _settings = _settings.copyWith(activeMemberId: id);
+    _photos.setMember(id);
     notifyListeners();
     unawaited(_settingsService.save(_settings));
   }
@@ -621,11 +640,16 @@ class DisplayController extends ChangeNotifier {
     final normalized = next.normalized();
     final addressChanged = !normalized.sameAddress(_settings);
     final modeChanged = normalized.alwaysListening != _settings.alwaysListening;
+    final photosChanged =
+        normalized.photoManifestUrl != _settings.photoManifestUrl;
     _settings = normalized;
     await _settingsService.save(normalized);
     notifyListeners();
     if (addressChanged) {
       _client.connect(normalized.wsUri);
+    }
+    if (photosChanged) {
+      unawaited(_photos.boot(normalized.photoManifestUrl));
     }
     _dimmer?.configure(normalized.dim);
     _updater?.configure(normalized.updateUri, normalized.dim);
@@ -868,6 +892,7 @@ class DisplayController extends ChangeNotifier {
     _voice?.dispose();
     unawaited(_tts?.dispose());
     _level.dispose();
+    _photos.dispose();
     super.dispose();
   }
 }

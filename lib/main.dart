@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
+import 'core/constants/app_constants.dart';
+import 'core/photos/photo_frame.dart';
 import 'core/state/display_controller.dart';
 import 'services/audio/mic_keep_alive.dart';
 import 'services/audio/tts_player.dart';
@@ -12,6 +14,8 @@ import 'services/hermes_sync_service.dart';
 import 'services/hermes_websocket_client.dart';
 import 'services/hub_tts_service.dart';
 import 'services/night_dimmer.dart';
+import 'services/photo_cache.dart';
+import 'services/photo_manifest_service.dart';
 import 'services/screen/screen_control.dart';
 import 'services/sen_memory_service.dart';
 import 'services/sen_pack_service.dart';
@@ -47,6 +51,11 @@ Future<void> main() async {
     memory: memory,
     pack: SenPackService(prefs: prefs, memory: memory),
     updater: AppUpdater(platform: const ChannelAppPlatform()),
+    photos: PhotoFrame(
+      manifests: PhotoManifestService(prefs: prefs),
+      cache: PhotoCache(),
+      deck: PhotoDefaults.deck,
+    ),
   )..start();
   controller.attachLifecycle();
   runApp(HermesApp(controller: controller));

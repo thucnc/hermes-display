@@ -19,7 +19,7 @@ Last Updated: 2026-10-02
   - Assignee: claude-code (opus-5-5)
   - Tags: #tts #piper #offline
 
-- [ ] **KB-006**: Album ảnh từ Immich / NAS / Local storage
+- [ ] **KB-006**: Album ảnh từ Immich / NAS (local folder + Apple Photos xong ở KB-015)
   - Priority: Low
   - Assignee: claude-code (opus-5-5)
   - Tags: #slideshow
@@ -39,6 +39,18 @@ Last Updated: 2026-10-02
   - Hub: `GET /api/app/latest`, `GET /api/app/apk/<file>`, `tools/publish_apk.py`.
   - Unverified: cài đè thật trên MatePad/emulator; tự mở lại sau update trên Android 10+ cần app là Home mặc định hoặc quyền "Hiển thị trên ứng dụng khác".
   - Tags: #ota #auto-update #knowledge-pack
+
+- [ ] **KB-015**: Khung ảnh gia đình (Local folder / Apple Photos manifest) & "Ngày này năm xưa"
+  - Priority: High
+  - Assignee: claude-code (opus-5-5)
+  - Completed: 2026-10-02
+  - Tests: 312/312 (257 cũ + 55 mới), 0 analyze issues. Hub/exporter: 7 endpoint + 17 exporter Python tests.
+  - Manifest: `PhotoManifest`/`FamilyPhoto` (url tương đối theo manifest, bỏ mục lỗi, từ chối manifest rỗng), `PhotoManifestService` (ETag/304, cache theo URL cho offline boot).
+  - Frame: `PhotoFrame` (playlist: ngày này năm xưa → ảnh của thành viên đang chọn → còn lại; đổi thứ tự lúc nửa đêm; tự kiểm tra manifest mỗi giờ; bỏ qua ảnh tải lỗi), `PhotoCache` (đĩa, LRU 300MB), `PhotoCaption` (huy hiệu "Ngày này năm xưa").
+  - Gemini: câu hỏi về ảnh ("ảnh này chụp ở đâu?") kèm chú thích/địa điểm/ngày chụp/người trong ảnh đang hiển thị.
+  - Hub: `tools/export_photos.py` (folder + EXIF DateTimeOriginal, osxphotos album/Shared Album, WebP 1080p + thumb, xoá EXIF/GPS) và `GET /api/photos/manifest` + `/api/photos/{img|thumb}/<id>.webp` trên `display_hub.py`.
+  - Unverified: trên MatePad thật; adapter osxphotos chỉ test với DB giả; HEIC qua `sips` chưa chạy thật.
+  - Tags: #slideshow #photos #on-this-day #offline
 
 - [ ] **KB-013**: Dynamic Sen Knowledge Pack qua URL công khai (Remote Sync)
   - Priority: High

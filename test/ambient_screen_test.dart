@@ -44,9 +44,7 @@ void main() {
       client: HermesWebSocketClient(transportFactory: factory.call),
     )..start();
 
-    await tester.pumpWidget(
-      HermesApp(controller: controller, photos: const []),
-    );
+    await tester.pumpWidget(HermesApp(controller: controller));
     await tester.pump();
     expect(find.text(AppStrings.statusConnected), findsOneWidget);
     expect(find.textContaining(':'), findsWidgets);
@@ -80,9 +78,7 @@ void main() {
         transportFactory: FakeTransportFactory().call,
       ),
     )..start();
-    await tester.pumpWidget(
-      HermesApp(controller: controller, photos: const []),
-    );
+    await tester.pumpWidget(HermesApp(controller: controller));
     await tester.pump(const Duration(seconds: 1));
     expect(find.byType(MemberSwitcher), findsOneWidget);
 
@@ -108,9 +104,7 @@ void main() {
       ),
     )..start();
 
-    await tester.pumpWidget(
-      HermesApp(controller: controller, photos: const []),
-    );
+    await tester.pumpWidget(HermesApp(controller: controller));
     await tester.pump(const Duration(seconds: 1));
     double slideOpacity() {
       return tester
@@ -149,9 +143,7 @@ void main() {
         ),
         voice: voice,
       )..start();
-      await tester.pumpWidget(
-        HermesApp(controller: controller, photos: const []),
-      );
+      await tester.pumpWidget(HermesApp(controller: controller));
       await tester.pump(const Duration(seconds: 1));
       return controller;
     }
@@ -240,9 +232,7 @@ void main() {
       gemini: gemini,
       sync: sync,
     )..start();
-    await tester.pumpWidget(
-      HermesApp(controller: controller, photos: const []),
-    );
+    await tester.pumpWidget(HermesApp(controller: controller));
     await tester.pump();
 
     controller.sendText('trứng chiên');
@@ -303,9 +293,7 @@ void main() {
         }),
       ),
     )..start();
-    await tester.pumpWidget(
-      HermesApp(controller: controller, photos: const []),
-    );
+    await tester.pumpWidget(HermesApp(controller: controller));
     await tester.pump();
     expect(find.byType(UpdateBadge), findsNothing);
 
