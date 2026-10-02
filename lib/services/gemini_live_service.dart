@@ -80,7 +80,7 @@ abstract final class _Key {
   static const String inputAudioTranscription = 'inputAudioTranscription';
   static const String outputAudioTranscription = 'outputAudioTranscription';
   static const String realtimeInput = 'realtimeInput';
-  static const String mediaChunks = 'mediaChunks';
+  static const String audioChunk = 'audio';
   static const String mimeType = 'mimeType';
   static const String data = 'data';
   static const String clientContent = 'clientContent';
@@ -371,12 +371,10 @@ final class GeminiLiveService {
   static String _chunkFrame(List<int> pcm) {
     return jsonEncode({
       _Key.realtimeInput: {
-        _Key.mediaChunks: [
-          {
-            _Key.mimeType: GeminiLiveDefaults.inputMime,
-            _Key.data: base64Encode(pcm),
-          },
-        ],
+        _Key.audioChunk: {
+          _Key.mimeType: GeminiLiveDefaults.inputMime,
+          _Key.data: base64Encode(pcm),
+        },
       },
     });
   }

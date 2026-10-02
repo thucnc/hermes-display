@@ -104,7 +104,7 @@ void main() {
     live.sendAudio([5, 6]);
     final chunks = [
       for (var i = 1; i < sockets.last.sent.length; i++)
-        ((sent(i)['realtimeInput'] as Map)['mediaChunks'] as List).single,
+        (sent(i)['realtimeInput'] as Map)['audio'],
     ];
     expect(chunks, [
       {
