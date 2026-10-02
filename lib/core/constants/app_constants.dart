@@ -1,3 +1,4 @@
+import '../members/member_profile.dart';
 import '../state/brain_mode.dart';
 
 /// Default hub connection values used until the user configures their own.
@@ -13,6 +14,7 @@ abstract final class HubDefaults {
 
   /// Effective only once a Gemini key is set; the hub otherwise.
   static const BrainMode brainMode = BrainMode.gemini;
+  static const String activeMemberId = MemberProfile.defaultId;
 }
 
 /// Accepted ranges for user-editable settings.

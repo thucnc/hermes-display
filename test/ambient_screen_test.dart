@@ -11,6 +11,7 @@ import 'package:hermes_display/services/wake_word_service.dart';
 import 'package:hermes_display/ui/screens/ambient_screen.dart';
 import 'package:hermes_display/ui/strings.dart';
 import 'package:hermes_display/ui/theme/app_theme.dart';
+import 'package:hermes_display/ui/widgets/member_switcher.dart';
 import 'package:hermes_display/ui/widgets/photo_slideshow.dart';
 import 'package:hermes_display/ui/widgets/rich_card.dart';
 import 'package:hermes_display/ui/widgets/status_badge.dart';
@@ -55,6 +56,28 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     expect(find.text(AppStrings.testConnection), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    controller.dispose();
+  });
+
+  testWidgets('tapping an avatar switches the active member', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final controller = DisplayController(
+      settingsService: await SettingsService.create(),
+      client: HermesWebSocketClient(
+        transportFactory: FakeTransportFactory().call,
+      ),
+    )..start();
+    await tester.pumpWidget(
+      HermesApp(controller: controller, photos: const []),
+    );
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.byType(MemberSwitcher), findsOneWidget);
+
+    await tester.tap(find.byKey(MemberSwitcher.keyFor('me')));
+    await tester.pump();
+    expect(controller.member.id, 'me');
 
     await tester.pumpWidget(const SizedBox());
     controller.dispose();

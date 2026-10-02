@@ -69,6 +69,11 @@ abstract final class AppStrings {
   static const String saving = 'Đang lưu…';
   static const String savedToBrain = 'Đã lưu vào Second Brain';
   static const String saveFailed = 'Không lưu được — kiểm tra kết nối Hub';
+  static const String quizCorrect = 'Chính xác! 🎉';
+  static const String quizWrong = 'Chưa đúng — đáp án là';
+  static const String quizLabel = 'Đố vui';
+  static const String roleplayLabel = 'Luyện tiếng Anh';
+  static const String vocabTitle = 'Từ vựng';
   static const String tipFullScreen = 'Toàn màn hình';
   static const String tipExitFullScreen = 'Thoát toàn màn hình';
 

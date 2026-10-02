@@ -6,12 +6,18 @@ import 'package:hermes_display/services/gemini_service.dart';
 class FakeGeminiService implements GeminiService {
   final List<String> prompts = [];
   final List<String> keys = [];
+  final List<String> contexts = [];
   final List<Completer<GeminiReply>> pending = [];
 
   @override
-  Future<GeminiReply> ask(String prompt, String apiKey) {
+  Future<GeminiReply> ask(
+    String prompt,
+    String apiKey, {
+    String memoryContext = '',
+  }) {
     prompts.add(prompt);
     keys.add(apiKey);
+    contexts.add(memoryContext);
     final completer = Completer<GeminiReply>();
     pending.add(completer);
     return completer.future;

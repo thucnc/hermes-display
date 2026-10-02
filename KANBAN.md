@@ -1,6 +1,6 @@
 # Hermes Display Kanban Board
 
-Last Updated: 2026-10-01 14:45
+Last Updated: 2026-10-02
 
 ## Backlog
 
@@ -27,6 +27,17 @@ Last Updated: 2026-10-01 14:45
 ## In Progress
 
 ## Review
+
+- [ ] **KB-011**: Sen OS — Member Profiles (Avatar Switcher), SQLite Memory Engine (Mem0-lite), & Pluggable Skills (Quiz & English Roleplay)
+  - Priority: Critical
+  - Assignee: claude-code (opus-5-5)
+  - Completed: 2026-10-02
+  - Tests: 215/215 (181 cũ + 34 mới), 0 analyze issues, debug APK builds.
+  - Members: `MemberProfile` (Bố Thức / Mẹ / Bé), `MemberSwitcher` top-center, `activeMemberId` lưu trong SharedPreferences.
+  - Memory: `SqfliteSenMemoryService` (members, facts, skill_progress), seed facts cho Bố Thức, `buildMemoryPrompt` ≤600 ký tự, prepend vào system instruction của Gemini.
+  - Skills: `QuizSkill` (JSON 4 lựa chọn, `QuizCard` xanh/đỏ, trả lời bằng chạm hoặc giọng nói "đáp án B"), `EnglishRoleplaySkill` (theo `EnglishLevel`, `RoleplayCard`); skill giữ qua các lượt tới khi trả lời thường hoặc đóng thẻ.
+  - Unverified: Gemini thật trả JSON đúng định dạng, SQLite trên MatePad thật.
+  - Tags: #sen-os #memory #skills #quiz #english-roleplay #sqlite
 
 - [ ] **KB-010**: Inline YouTube player trong RichCard, định tuyến Voice sang Gemini và TTS cho câu trả lời của Gemini
   - Priority: Critical

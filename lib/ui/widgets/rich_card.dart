@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 
 import '../../core/media/rich_content.dart';
+import '../../core/skills/skill_content.dart';
 import '../../services/hermes_sync_service.dart';
 import '../strings.dart';
 import '../theme/app_theme.dart';
 import 'glass_surface.dart';
 import 'inline_video.dart';
+import 'quiz_card.dart';
+import 'roleplay_card.dart';
 
 typedef VideoBuilder = Widget Function(YouTubeVideo video);
 
 Widget _inlineVideo(YouTubeVideo video) => InlineVideo(video: video);
 
 /// Reply card with an inline YouTube player, numbered steps and
-/// "Save to Hermes".
+/// "Save to Hermes"; skill replies render their own interactive card.
 class RichCard extends StatefulWidget {
   const RichCard({
     super.key,
@@ -20,6 +23,8 @@ class RichCard extends StatefulWidget {
     required this.onSave,
     required this.onClose,
     this.playerBuilder = _inlineVideo,
+    this.quizPick,
+    this.onQuizPick,
   });
 
   final RichContent content;
@@ -29,6 +34,10 @@ class RichCard extends StatefulWidget {
   final VideoBuilder playerBuilder;
   final Future<SaveResult> Function() onSave;
   final VoidCallback onClose;
+
+  /// Chosen quiz option, null until answered.
+  final int? quizPick;
+  final ValueChanged<int>? onQuizPick;
 
   @override
   State<RichCard> createState() => _RichCardState();
@@ -87,41 +96,57 @@ class _RichCardState extends State<RichCard> {
             const SizedBox(height: Spacing.md),
             Flexible(
               child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (video != null) ...[
-                      _videoTile(video),
-                      const SizedBox(height: Spacing.lg),
-                    ],
-                    if (content.steps.isEmpty)
-                      Text(
-                        content.body,
-                        style: const TextStyle(
-                          fontSize: _bodySize,
-                          height: _lineHeight,
-                        ),
-                      )
-                    else
-                      ..._steps(content.steps),
-                  ],
-                ),
+                child:
+                    _skillBody(content.skill) ??
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (video != null) ...[
+                          _videoTile(video),
+                          const SizedBox(height: Spacing.lg),
+                        ],
+                        if (content.steps.isEmpty)
+                          Text(
+                            content.body,
+                            style: const TextStyle(
+                              fontSize: _bodySize,
+                              height: _lineHeight,
+                            ),
+                          )
+                        else
+                          ..._steps(content.steps),
+                      ],
+                    ),
               ),
             ),
-            const SizedBox(height: Spacing.md),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.tonal(
-                onPressed: _saving ? null : _save,
-                child: Text(
-                  _saving ? AppStrings.saving : AppStrings.saveToHermes,
+            if (content.skill == null) ...[
+              const SizedBox(height: Spacing.md),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.tonal(
+                  onPressed: _saving ? null : _save,
+                  child: Text(
+                    _saving ? AppStrings.saving : AppStrings.saveToHermes,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  Widget? _skillBody(SkillContent? skill) {
+    return switch (skill) {
+      null => null,
+      QuizContent() => QuizCard(
+        quiz: skill,
+        picked: widget.quizPick,
+        onPick: (index) => widget.onQuizPick?.call(index),
+      ),
+      RoleplayContent() => RoleplayCard(roleplay: skill),
+    };
   }
 
   Widget _header(String title) {

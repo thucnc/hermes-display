@@ -12,6 +12,7 @@ import 'services/hermes_websocket_client.dart';
 import 'services/hub_tts_service.dart';
 import 'services/night_dimmer.dart';
 import 'services/screen/screen_control.dart';
+import 'services/sen_memory_service.dart';
 import 'services/settings_service.dart';
 import 'services/wake_word_service.dart';
 import 'services/wakelock_service.dart';
@@ -37,6 +38,7 @@ Future<void> main() async {
     gemini: HttpGeminiService(),
     sync: HermesSyncService(),
     hubTts: HubTtsService(),
+    memory: await SqfliteSenMemoryService.device(),
   )..start();
   runApp(HermesApp(controller: controller));
 }

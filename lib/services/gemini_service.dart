@@ -34,8 +34,14 @@ abstract interface class GeminiService {
       'hướng dẫn hoặc tìm kiếm video, hãy cung cấp công thức chuẩn kèm link '
       'video YouTube cụ thể.';
 
-  /// Throws [GeminiException] on a missing key, network or API failure.
-  Future<GeminiReply> ask(String prompt, String apiKey);
+  /// [memoryContext] goes before [systemPrompt]: who is talking, their
+  /// memories and the active skill. Throws [GeminiException] on a missing
+  /// key, network or API failure.
+  Future<GeminiReply> ask(
+    String prompt,
+    String apiKey, {
+    String memoryContext = '',
+  });
 }
 
 abstract final class _Key {
@@ -70,9 +76,14 @@ final class HttpGeminiService implements GeminiService {
   final http.Client _client;
   static const int _httpOk = 200;
   static const String _jsonType = 'application/json; charset=utf-8';
+  static const String _contextGap = '\n\n';
 
   @override
-  Future<GeminiReply> ask(String prompt, String apiKey) async {
+  Future<GeminiReply> ask(
+    String prompt,
+    String apiKey, {
+    String memoryContext = '',
+  }) async {
     if (apiKey.isEmpty) {
       throw const GeminiException(_Error.noKey);
     }
@@ -82,7 +93,7 @@ final class HttpGeminiService implements GeminiService {
           .post(
             _endpoint(apiKey),
             headers: {'content-type': _jsonType},
-            body: jsonEncode(_payload(prompt)),
+            body: jsonEncode(_payload(prompt, memoryContext)),
           )
           .timeout(GeminiDefaults.timeout);
     } on Exception {
@@ -104,11 +115,14 @@ final class HttpGeminiService implements GeminiService {
     );
   }
 
-  static Map<String, Object?> _payload(String prompt) {
+  static Map<String, Object?> _payload(String prompt, String context) {
+    final system = context.isEmpty
+        ? GeminiService.systemPrompt
+        : '$context$_contextGap${GeminiService.systemPrompt}';
     return {
       _Key.system: {
         _Key.parts: [
-          {_Key.text: GeminiService.systemPrompt},
+          {_Key.text: system},
         ],
       },
       _Key.contents: [

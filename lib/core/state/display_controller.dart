@@ -13,11 +13,15 @@ import '../../services/hub_tts_service.dart';
 import '../../services/night_dimmer.dart';
 import '../../services/protocol/hermes_message.dart';
 import '../../services/screen/screen_control.dart';
+import '../../services/sen_memory_service.dart';
 import '../../services/settings_service.dart';
 import '../../services/wake_word_service.dart';
 import '../constants/app_constants.dart';
 import '../media/rich_content.dart';
 import '../media/spoken_summary.dart';
+import '../members/member_profile.dart';
+import '../skills/sen_skill.dart';
+import '../skills/skill_content.dart';
 import 'brain_mode.dart';
 import 'connection_status.dart';
 import 'display_state.dart';
@@ -41,6 +45,7 @@ class DisplayController extends ChangeNotifier {
     GeminiService? gemini,
     HermesSyncService? sync,
     HubTtsService? hubTts,
+    SenMemoryService? memory,
   }) : _settingsService = settingsService,
        _client = client,
        _voice = voice,
@@ -52,6 +57,7 @@ class DisplayController extends ChangeNotifier {
        _gemini = gemini,
        _sync = sync,
        _hubTts = hubTts,
+       _memory = memory,
        _settings = settingsService.load();
 
   final SettingsService _settingsService;
@@ -84,6 +90,9 @@ class DisplayController extends ChangeNotifier {
 
   /// Null: Gemini answers are shown, never spoken.
   final HubTtsService? _hubTts;
+
+  /// Null: Gemini gets no member memory and skill scores are not kept.
+  final SenMemoryService? _memory;
   static final ValueNotifier<bool> _neverDimmed = ValueNotifier<bool>(false);
   final List<StreamSubscription<Object?>> _subscriptions = [];
   final ValueNotifier<double> _level = ValueNotifier<double>(0);
@@ -96,6 +105,12 @@ class DisplayController extends ChangeNotifier {
   String _reply = '';
   String? _lastError;
   RichContent? _rich;
+
+  /// Last skill card; survives turns so a quiz can be answered by voice
+  /// and a roleplay continues. Cleared by plain replies and dismiss.
+  RichContent? _session;
+  int? _quizPick;
+  static const String _contextGap = '\n\n';
 
   /// Bumped per Gemini turn and on cancel so late answers are dropped.
   int _geminiTurn = 0;
@@ -117,6 +132,11 @@ class DisplayController extends ChangeNotifier {
 
   /// Video/steps card for the last reply; stays after the turn ends.
   RichContent? get rich => _rich;
+
+  /// Chosen option of the shown quiz, null until answered.
+  int? get quizPick => _quizPick;
+
+  MemberProfile get member => MemberProfile.byId(_settings.activeMemberId);
   VoiceStatus? get voiceStatus => _voiceStatus;
 
   /// Outcome of the last lock-screen wake/release call.
@@ -253,6 +273,9 @@ class DisplayController extends ChangeNotifier {
 
   SendResult _askGemini(GeminiService gemini, String text) {
     _stopSpeech();
+    if (_answerQuiz(text)) {
+      return SendResult.sent;
+    }
     final turn = ++_geminiTurn;
     if (!transition(DisplayState.thinking)) {
       _reply = '';
@@ -265,9 +288,20 @@ class DisplayController extends ChangeNotifier {
   }
 
   Future<void> _runGemini(GeminiService gemini, String text, int turn) async {
+    final member = this.member;
+    final skill = SenSkill.detect(text) ?? _sessionSkill;
+    final memory = _memory;
+    final remembered = memory == null ? '' : await _recall(memory, member);
+    if (_isStale(turn)) {
+      return;
+    }
     final GeminiReply answer;
     try {
-      answer = await gemini.ask(text, _settings.geminiApiKey);
+      answer = await gemini.ask(
+        text,
+        _settings.geminiApiKey,
+        memoryContext: _contextFor(remembered, skill, member),
+      );
     } on GeminiException catch (error) {
       if (_isStale(turn)) {
         return;
@@ -279,14 +313,102 @@ class DisplayController extends ChangeNotifier {
     if (_isStale(turn) || _state != DisplayState.thinking) {
       return;
     }
-    _reply = answer.text;
-    _rich = RichContent.parse(
-      question: text,
-      reply: answer.text,
-      videos: answer.videos,
-    );
+    final content = skill?.parse(answer.text);
+    _reply = content?.spoken ?? answer.text;
+    _rich = content == null
+        ? RichContent.parse(
+            question: text,
+            reply: answer.text,
+            videos: answer.videos,
+          )
+        : RichContent.forSkill(question: text, skill: content);
+    _session = content == null ? null : _rich;
+    _quizPick = null;
     transition(DisplayState.speaking);
-    unawaited(_speakAnswer(answer.text, turn));
+    unawaited(_speakAnswer(_reply, turn));
+    if (content is RoleplayContent) {
+      unawaited(_record(member, SkillKind.english, SkillOutcome.practiced));
+    }
+  }
+
+  SenSkill? get _sessionSkill {
+    final kind = _session?.skill?.kind;
+    return kind == null ? null : SenSkill.of(kind);
+  }
+
+  /// Memory first, then the skill and what was said in it last turn.
+  String _contextFor(String memory, SenSkill? skill, MemberProfile member) {
+    final recap = _session?.skill;
+    return [
+      memory,
+      ?skill?.instruction(member),
+      if (recap != null && recap.kind == skill?.kind) recap.recap,
+    ].where((part) => part.isNotEmpty).join(_contextGap);
+  }
+
+  /// Memory is a bonus; a broken database never blocks an answer.
+  Future<String> _recall(SenMemoryService memory, MemberProfile member) async {
+    try {
+      return await memory.buildMemoryPrompt(member.id);
+    } on Exception {
+      return '';
+    }
+  }
+
+  Future<void> _record(
+    MemberProfile member,
+    SkillKind skill,
+    SkillOutcome outcome,
+  ) async {
+    try {
+      await _memory?.recordSkill(member.id, skill, outcome);
+    } on Exception {
+      return;
+    }
+  }
+
+  /// A typed or spoken "B" answers the open quiz locally.
+  bool _answerQuiz(String text) {
+    final session = _session;
+    final quiz = session?.skill;
+    if (quiz is! QuizContent || _quizPick != null) {
+      return false;
+    }
+    final choice = quiz.choiceFrom(text);
+    if (choice == null) {
+      return false;
+    }
+    _rich = session;
+    _forceIdle();
+    pickQuiz(choice);
+    return true;
+  }
+
+  /// Answers the shown quiz once and scores it for the active member.
+  void pickQuiz(int index) {
+    final quiz = _rich?.skill;
+    if (quiz is! QuizContent || _quizPick != null) {
+      return;
+    }
+    if (index < 0 || index >= quiz.options.length) {
+      return;
+    }
+    _quizPick = index;
+    notifyListeners();
+    final outcome = quiz.isCorrect(index)
+        ? SkillOutcome.correct
+        : SkillOutcome.wrong;
+    unawaited(_record(member, SkillKind.quiz, outcome));
+  }
+
+  /// Avatar tap: who Sen is talking to from the next turn on.
+  void selectMember(String id) {
+    if (id == _settings.activeMemberId || !MemberProfile.isKnown(id)) {
+      return;
+    }
+    _settings = _settings.copyWith(activeMemberId: id);
+    notifyListeners();
+    unawaited(_settingsService.save(_settings));
   }
 
   /// Reads the start of a Gemini answer aloud via the hub; on failure the
@@ -308,10 +430,12 @@ class DisplayController extends ChangeNotifier {
   bool _isStale(int turn) => _disposed || turn != _geminiTurn;
 
   void dismissRich() {
-    if (_rich == null) {
+    if (_rich == null && _session == null) {
       return;
     }
     _rich = null;
+    _session = null;
+    _quizPick = null;
     notifyListeners();
   }
 
@@ -479,6 +603,8 @@ class DisplayController extends ChangeNotifier {
       case SpeechMessage(:final text, :final audioBytes):
         _reply = text;
         _rich = RichContent.parse(question: _transcript, reply: text);
+        _session = null;
+        _quizPick = null;
         if (!transition(DisplayState.speaking)) {
           notifyListeners();
         }

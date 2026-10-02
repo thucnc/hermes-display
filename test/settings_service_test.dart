@@ -98,4 +98,18 @@ void main() {
     );
     expect(settings.saveUri.toString(), 'http://10.0.0.2:8901/save');
   });
+
+  test('active member defaults to thuc and round-trips', () async {
+    SharedPreferences.setMockInitialValues({});
+    final service = await SettingsService.create();
+    expect(service.load().activeMemberId, 'thuc');
+
+    await service.save(HubSettings.defaults.copyWith(activeMemberId: 'be'));
+    expect(service.load().activeMemberId, 'be');
+  });
+
+  test('unknown active member falls back to the default', () {
+    final settings = HubSettings.defaults.copyWith(activeMemberId: 'ghost');
+    expect(settings.normalized().activeMemberId, HubDefaults.activeMemberId);
+  });
 }

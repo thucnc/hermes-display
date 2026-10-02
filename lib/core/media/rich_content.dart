@@ -1,3 +1,5 @@
+import '../skills/skill_content.dart';
+
 /// Second Brain folder a saved note lands in; [name] is the wire value.
 enum NoteCategory { recipes, notes }
 
@@ -65,7 +67,22 @@ class RichContent {
     required this.steps,
     required this.category,
     this.video,
+    this.skill,
   });
+
+  /// Card for a structured skill reply (quiz, roleplay).
+  factory RichContent.forSkill({
+    required String question,
+    required SkillContent skill,
+  }) {
+    return RichContent(
+      title: _titleFrom(question, skill.spoken),
+      body: skill.spoken,
+      steps: const [],
+      category: NoteCategory.notes,
+      skill: skill,
+    );
+  }
 
   static const int maxTitleChars = 80;
   static const int _minSteps = 2;
@@ -87,6 +104,9 @@ class RichContent {
   final List<String> steps;
   final NoteCategory category;
   final YouTubeVideo? video;
+
+  /// Set for skill replies; the card then renders the skill instead.
+  final SkillContent? skill;
 
   /// Null when the reply is plain chat. [videos] adds links found outside
   /// the text, e.g. search grounding sources.

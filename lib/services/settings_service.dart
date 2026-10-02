@@ -2,6 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/constants/app_constants.dart';
 import '../core/dimming/dim_schedule.dart';
+import '../core/members/member_profile.dart';
 import '../core/state/brain_mode.dart';
 import 'audio/wake_detector.dart';
 
@@ -16,6 +17,7 @@ class HubSettings {
     this.dim = DimSettings.defaults,
     this.geminiApiKey = HubDefaults.geminiApiKey,
     this.brainMode = HubDefaults.brainMode,
+    this.activeMemberId = HubDefaults.activeMemberId,
   });
 
   static const HubSettings defaults = HubSettings(
@@ -28,6 +30,7 @@ class HubSettings {
     dim: DimSettings.defaults,
     geminiApiKey: HubDefaults.geminiApiKey,
     brainMode: HubDefaults.brainMode,
+    activeMemberId: HubDefaults.activeMemberId,
   );
 
   final String host;
@@ -47,6 +50,9 @@ class HubSettings {
 
   /// Preferred brain; see [activeBrain] for the one actually used.
   final BrainMode brainMode;
+
+  /// Family member Sen is talking to; see [MemberProfile.family].
+  final String activeMemberId;
 
   /// Gemini only when chosen and a key exists, otherwise the hub.
   BrainMode get activeBrain {
@@ -96,6 +102,7 @@ class HubSettings {
     DimSettings? dim,
     String? geminiApiKey,
     BrainMode? brainMode,
+    String? activeMemberId,
   }) {
     return HubSettings(
       host: host ?? this.host,
@@ -107,6 +114,7 @@ class HubSettings {
       dim: dim ?? this.dim,
       geminiApiKey: geminiApiKey ?? this.geminiApiKey,
       brainMode: brainMode ?? this.brainMode,
+      activeMemberId: activeMemberId ?? this.activeMemberId,
     );
   }
 
@@ -131,6 +139,9 @@ class HubSettings {
       dim: dim.normalized(),
       geminiApiKey: geminiApiKey.trim(),
       brainMode: brainMode,
+      activeMemberId: MemberProfile.isKnown(activeMemberId)
+          ? activeMemberId
+          : HubDefaults.activeMemberId,
     );
   }
 }
@@ -148,6 +159,7 @@ abstract final class _PrefKey {
   static const String dimLevel = 'dim_level';
   static const String geminiApiKey = 'gemini_api_key';
   static const String brainMode = 'brain_mode';
+  static const String activeMember = 'active_member_id';
 }
 
 class SettingsService {
@@ -179,6 +191,8 @@ class SettingsService {
       brainMode:
           BrainMode.fromName(_prefs.getString(_PrefKey.brainMode)) ??
           fallback.brainMode,
+      activeMemberId:
+          _prefs.getString(_PrefKey.activeMember) ?? fallback.activeMemberId,
     ).normalized();
   }
 
@@ -206,6 +220,7 @@ class SettingsService {
       _prefs.setDouble(_PrefKey.dimLevel, value.dim.level),
       _prefs.setString(_PrefKey.geminiApiKey, value.geminiApiKey),
       _prefs.setString(_PrefKey.brainMode, value.brainMode.name),
+      _prefs.setString(_PrefKey.activeMember, value.activeMemberId),
     ]);
   }
 }

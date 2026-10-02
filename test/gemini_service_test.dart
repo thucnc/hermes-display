@@ -104,4 +104,20 @@ void main() {
     );
     await expectLater(offline.ask('q', key), throwsA(isA<GeminiException>()));
   });
+
+  test('memory context is prepended to the system prompt', () async {
+    late http.Request seen;
+    final service = HttpGeminiService(
+      client: MockClient((request) async {
+        seen = request;
+        return http.Response.bytes(utf8.encode(jsonEncode(reply('ok'))), 200);
+      }),
+    );
+    await service.ask('q', key, memoryContext: 'Đang nói chuyện với: Mẹ');
+    final body = jsonDecode(seen.body) as Map<String, dynamic>;
+    expect(
+      body['system_instruction']['parts'][0]['text'],
+      'Đang nói chuyện với: Mẹ\n\n${GeminiService.systemPrompt}',
+    );
+  });
 }

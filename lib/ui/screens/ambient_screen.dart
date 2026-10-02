@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/members/member_profile.dart';
 import '../../core/state/display_controller.dart';
 import '../../core/state/display_state.dart';
 import '../../services/wake_word_service.dart';
@@ -7,6 +8,7 @@ import '../strings.dart';
 import '../theme/app_theme.dart';
 import '../widgets/ambient_clock.dart';
 import '../widgets/legibility_scrim.dart';
+import '../widgets/member_switcher.dart';
 import '../widgets/photo_slideshow.dart';
 import '../widgets/quick_input_bar.dart';
 import '../widgets/rich_card.dart';
@@ -85,6 +87,14 @@ class AmbientScreen extends StatelessWidget {
                     ),
                   ),
                   Align(
+                    alignment: Alignment.topCenter,
+                    child: MemberSwitcher(
+                      members: MemberProfile.family,
+                      activeId: controller.member.id,
+                      onSelect: controller.selectMember,
+                    ),
+                  ),
+                  Align(
                     alignment: Alignment.topRight,
                     child: IconButton(
                       tooltip: AppStrings.tipSettings,
@@ -140,6 +150,8 @@ class AmbientScreen extends StatelessWidget {
         content: rich,
         onSave: controller.saveRich,
         onClose: controller.dismissRich,
+        quizPick: controller.quizPick,
+        onQuizPick: controller.pickQuiz,
       ),
     );
   }
