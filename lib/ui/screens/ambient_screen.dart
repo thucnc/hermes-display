@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../core/media/rich_content.dart';
 import '../../core/state/display_controller.dart';
 import '../../core/state/display_state.dart';
 import '../../services/wake_word_service.dart';
@@ -139,20 +138,9 @@ class AmbientScreen extends StatelessWidget {
       child: RichCard(
         key: ValueKey(rich),
         content: rich,
-        onPlay: (video) => _play(context, video),
         onSave: controller.saveRich,
         onClose: controller.dismissRich,
       ),
-    );
-  }
-
-  Future<void> _play(BuildContext context, YouTubeVideo video) async {
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (await controller.openVideo(video)) {
-      return;
-    }
-    messenger?.showSnackBar(
-      const SnackBar(content: Text(AppStrings.videoFailed)),
     );
   }
 

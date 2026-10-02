@@ -120,3 +120,10 @@ abstract final class SyncDefaults {
   static const String savePath = '/save';
   static const Duration timeout = Duration(seconds: 10);
 }
+
+/// Hub HTTP endpoint that speaks Gemini answers; shares the hub host:port.
+abstract final class HubTtsDefaults {
+  static const String path = '/tts';
+  static const String textParam = 'text';
+  static const Duration timeout = Duration(seconds: 15);
+}

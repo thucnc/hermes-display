@@ -28,6 +28,17 @@ Last Updated: 2026-10-01 14:45
 
 ## Review
 
+- [ ] **KB-010**: Inline YouTube player trong RichCard, định tuyến Voice sang Gemini và TTS cho câu trả lời của Gemini
+  - Priority: Critical
+  - Assignee: claude-code (opus-5-5)
+  - Completed: 2026-10-02
+  - Tests: 181/181 (170 cũ + 11 mới), 0 analyze issues, debug APK builds.
+  - Client: `InlineVideo` with embedded `youtube_player_flutter` inside `RichCard` (no external app jump, stays in kiosk).
+  - Voice routing: when `activeBrain == BrainMode.gemini`, `audio_end` sends `brain: "gemini"`, Hub skips `run_hermes`, transcript triggers `_askGemini`.
+  - Spoken summary: `SpokenSummary` cleans markdown and extracts 1-2 sentences for `HubTtsService` to speak via `TtsPlayer`.
+  - Hub: `display_hub.py` handles `brain: "gemini"` by acknowledging transcript without blocking on `run_hermes`.
+  - Tags: #youtube-inline #voice-gemini #tts #kiosk
+
 - [ ] **KB-009**: Tích hợp Gemini 3.8 Flash Direct + Google Search Grounding, Rich Media Cards (YouTube/Recipe), và Save-to-Hermes Sync
   - Priority: Critical
   - Assignee: claude-code (opus-5-5)

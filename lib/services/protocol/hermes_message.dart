@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../../core/state/brain_mode.dart';
 import '../../core/state/display_state.dart';
 
 /// JSON keys of the Hermes Voice Bridge wire protocol.
@@ -11,6 +12,12 @@ abstract final class WireKey {
   static const String level = 'level';
   static const String isFinal = 'final';
   static const String audio = 'audio';
+  static const String brain = 'brain';
+}
+
+/// `brain` values of `audio_end`; absent means the hub answers.
+abstract final class WireBrain {
+  static const String gemini = 'gemini';
 }
 
 /// Message `type` values. Incoming: state, tts, transcript, level, error.
@@ -87,6 +94,17 @@ abstract final class HermesCodec {
   }
 
   static String command(String type) => jsonEncode({WireKey.type: type});
+
+  /// End of utterance; for [BrainMode.gemini] the hub only transcribes.
+  static String audioEnd(BrainMode brain) {
+    if (brain == BrainMode.hub) {
+      return command(WireType.audioEnd);
+    }
+    return jsonEncode({
+      WireKey.type: WireType.audioEnd,
+      WireKey.brain: WireBrain.gemini,
+    });
+  }
 
   static HermesMessage? _fromMap(Map<String, dynamic> map) {
     final text = _string(map[WireKey.text]);

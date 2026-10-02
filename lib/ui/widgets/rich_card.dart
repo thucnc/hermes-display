@@ -5,19 +5,28 @@ import '../../services/hermes_sync_service.dart';
 import '../strings.dart';
 import '../theme/app_theme.dart';
 import 'glass_surface.dart';
+import 'inline_video.dart';
 
-/// Reply card with a YouTube preview, numbered steps and "Save to Hermes".
+typedef VideoBuilder = Widget Function(YouTubeVideo video);
+
+Widget _inlineVideo(YouTubeVideo video) => InlineVideo(video: video);
+
+/// Reply card with an inline YouTube player, numbered steps and
+/// "Save to Hermes".
 class RichCard extends StatefulWidget {
   const RichCard({
     super.key,
     required this.content,
-    required this.onPlay,
     required this.onSave,
     required this.onClose,
+    this.playerBuilder = _inlineVideo,
   });
 
   final RichContent content;
-  final ValueChanged<YouTubeVideo> onPlay;
+
+  /// Builds the player once play is tapped; tests swap in a stand-in
+  /// because the real one needs a native WebView.
+  final VideoBuilder playerBuilder;
   final Future<SaveResult> Function() onSave;
   final VoidCallback onClose;
 
@@ -42,6 +51,9 @@ class _RichCardState extends State<RichCard> {
   static const double _badgeTextSize = 16;
 
   bool _saving = false;
+  bool _playing = false;
+
+  void _play() => setState(() => _playing = true);
 
   Future<void> _save() async {
     setState(() => _saving = true);
@@ -150,10 +162,16 @@ class _RichCardState extends State<RichCard> {
   }
 
   Widget _videoTile(YouTubeVideo video) {
+    if (_playing) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(_thumbRadius),
+        child: widget.playerBuilder(video),
+      );
+    }
     return Row(
       children: [
         GestureDetector(
-          onTap: () => widget.onPlay(video),
+          onTap: _play,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(_thumbRadius),
             child: SizedBox(
@@ -194,7 +212,7 @@ class _RichCardState extends State<RichCard> {
               ),
               const SizedBox(height: Spacing.sm),
               FilledButton.icon(
-                onPressed: () => widget.onPlay(video),
+                onPressed: _play,
                 icon: const Icon(Icons.play_arrow_rounded),
                 label: const Text(AppStrings.playVideo),
               ),

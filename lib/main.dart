@@ -9,7 +9,7 @@ import 'services/audio/wake_model_installer.dart';
 import 'services/gemini_service.dart';
 import 'services/hermes_sync_service.dart';
 import 'services/hermes_websocket_client.dart';
-import 'services/link_opener.dart';
+import 'services/hub_tts_service.dart';
 import 'services/night_dimmer.dart';
 import 'services/screen/screen_control.dart';
 import 'services/settings_service.dart';
@@ -36,7 +36,7 @@ Future<void> main() async {
     tts: DeviceTtsPlayer(),
     gemini: HttpGeminiService(),
     sync: HermesSyncService(),
-    links: const ExternalLinkOpener(),
+    hubTts: HubTtsService(),
   )..start();
   runApp(HermesApp(controller: controller));
 }

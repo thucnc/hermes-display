@@ -67,6 +67,15 @@ class HubSettings {
     );
   }
 
+  Uri get ttsUri {
+    return Uri(
+      scheme: SyncDefaults.scheme,
+      host: host,
+      port: port,
+      path: HubTtsDefaults.path,
+    );
+  }
+
   Duration get slideInterval => Duration(seconds: slideIntervalSec);
 
   WakeConfig get wakeConfig {

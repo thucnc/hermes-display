@@ -205,7 +205,6 @@ void main() {
       ),
       gemini: gemini,
       sync: sync,
-      links: FakeLinks(),
     )..start();
     await tester.pumpWidget(
       HermesApp(controller: controller, photos: const []),

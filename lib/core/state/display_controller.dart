@@ -9,7 +9,7 @@ import '../../services/audio/wake_model_installer.dart';
 import '../../services/gemini_service.dart';
 import '../../services/hermes_sync_service.dart';
 import '../../services/hermes_websocket_client.dart';
-import '../../services/link_opener.dart';
+import '../../services/hub_tts_service.dart';
 import '../../services/night_dimmer.dart';
 import '../../services/protocol/hermes_message.dart';
 import '../../services/screen/screen_control.dart';
@@ -17,6 +17,7 @@ import '../../services/settings_service.dart';
 import '../../services/wake_word_service.dart';
 import '../constants/app_constants.dart';
 import '../media/rich_content.dart';
+import '../media/spoken_summary.dart';
 import 'brain_mode.dart';
 import 'connection_status.dart';
 import 'display_state.dart';
@@ -39,7 +40,7 @@ class DisplayController extends ChangeNotifier {
     TtsPlayer? tts,
     GeminiService? gemini,
     HermesSyncService? sync,
-    LinkOpener? links,
+    HubTtsService? hubTts,
   }) : _settingsService = settingsService,
        _client = client,
        _voice = voice,
@@ -50,7 +51,7 @@ class DisplayController extends ChangeNotifier {
        _tts = tts,
        _gemini = gemini,
        _sync = sync,
-       _links = links,
+       _hubTts = hubTts,
        _settings = settingsService.load();
 
   final SettingsService _settingsService;
@@ -75,14 +76,14 @@ class DisplayController extends ChangeNotifier {
   /// Null: replies are shown, never spoken.
   final TtsPlayer? _tts;
 
-  /// Null: typed turns always go to the hub.
+  /// Null: every turn goes to the hub.
   final GeminiService? _gemini;
 
   /// Null: "Save to Hermes" always fails.
   final HermesSyncService? _sync;
 
-  /// Null: video links cannot be opened.
-  final LinkOpener? _links;
+  /// Null: Gemini answers are shown, never spoken.
+  final HubTtsService? _hubTts;
   static final ValueNotifier<bool> _neverDimmed = ValueNotifier<bool>(false);
   final List<StreamSubscription<Object?>> _subscriptions = [];
   final ValueNotifier<double> _level = ValueNotifier<double>(0);
@@ -285,6 +286,23 @@ class DisplayController extends ChangeNotifier {
       videos: answer.videos,
     );
     transition(DisplayState.speaking);
+    unawaited(_speakAnswer(answer.text, turn));
+  }
+
+  /// Reads the start of a Gemini answer aloud via the hub; on failure the
+  /// text stays on screen until the watchdog.
+  Future<void> _speakAnswer(String answer, int turn) async {
+    final hubTts = _hubTts;
+    final tts = _tts;
+    final summary = spokenSummary(answer);
+    if (hubTts == null || tts == null || summary.isEmpty) {
+      return;
+    }
+    final audio = await hubTts.fetch(_settings.ttsUri, summary);
+    if (audio == null || _isStale(turn) || _state != DisplayState.speaking) {
+      return;
+    }
+    await tts.play(audio);
   }
 
   bool _isStale(int turn) => _disposed || turn != _geminiTurn;
@@ -305,10 +323,6 @@ class DisplayController extends ChangeNotifier {
       return SaveResult.failed;
     }
     return sync.save(_settings.saveUri, rich.toNote());
-  }
-
-  Future<bool> openVideo(YouTubeVideo video) async {
-    return await _links?.open(video.watchUri) ?? false;
   }
 
   /// Mic button and wake word entry point: cue, listening, then capture.
@@ -472,14 +486,30 @@ class DisplayController extends ChangeNotifier {
           unawaited(_tts?.play(audioBytes));
         }
       case TranscriptMessage(:final text):
-        _transcript = text;
-        notifyListeners();
+        _onTranscript(text);
       case LevelMessage(:final level):
         _level.value = level;
       case ErrorMessage(:final text):
         _lastError = text;
         _forceIdle();
     }
+  }
+
+  /// A Gemini voice turn starts once the hub has transcribed it.
+  void _onTranscript(String text) {
+    final gemini = _gemini;
+    final awaiting =
+        _state == DisplayState.thinking && _turnBrain == BrainMode.hub;
+    if (gemini != null && awaiting && _voiceBrain == BrainMode.gemini) {
+      _askGemini(gemini, text);
+      return;
+    }
+    _transcript = text;
+    notifyListeners();
+  }
+
+  BrainMode get _voiceBrain {
+    return _gemini == null ? BrainMode.hub : _settings.activeBrain;
   }
 
   void _onVoice(VoiceEvent event) {
@@ -538,7 +568,7 @@ class DisplayController extends ChangeNotifier {
     switch (reason) {
       case CaptureEnd.speechEnded:
       case CaptureEnd.maxLength:
-        _client.send(HermesCodec.command(WireType.audioEnd));
+        _client.send(HermesCodec.audioEnd(_voiceBrain));
         transition(DisplayState.thinking);
       case CaptureEnd.noSpeech:
       case CaptureEnd.stopped:

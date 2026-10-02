@@ -1,5 +1,4 @@
-/// Which brain answers typed turns. Voice turns always use the hub, which
-/// owns speech-to-text.
+/// Which brain answers turns. Speech-to-text always runs on the hub.
 enum BrainMode {
   hub,
   gemini;

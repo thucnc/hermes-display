@@ -12,21 +12,20 @@ void main() {
 [Trứng chiên ngon](https://youtu.be/abcdefghijk)''';
   final content = RichContent.parse(question: 'trứng chiên', reply: reply)!;
 
-  Future<List<YouTubeVideo>> pump(
+  Future<void> pump(
     WidgetTester tester, {
     required RichContent rich,
     SaveResult result = SaveResult.saved,
     List<int>? saves,
     List<int>? closes,
   }) async {
-    final played = <YouTubeVideo>[];
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: Center(
             child: RichCard(
               content: rich,
-              onPlay: played.add,
+              playerBuilder: (video) => Text('player:${video.id}'),
               onSave: () async {
                 saves?.add(1);
                 return result;
@@ -37,19 +36,22 @@ void main() {
         ),
       ),
     );
-    return played;
   }
 
-  testWidgets('video card, numbered steps and play button', (tester) async {
-    final played = await pump(tester, rich: content);
+  testWidgets('video card, numbered steps and inline play', (tester) async {
+    await pump(tester, rich: content);
     expect(find.text('Trứng chiên ngon'), findsOneWidget);
     expect(find.text('Đập trứng.'), findsOneWidget);
     expect(find.text('Chiên vàng.'), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
     expect(find.text('2'), findsOneWidget);
 
+    expect(find.text('player:abcdefghijk'), findsNothing);
+
     await tester.tap(find.text(AppStrings.playVideo));
-    expect(played.single.id, 'abcdefghijk');
+    await tester.pump();
+    expect(find.text('player:abcdefghijk'), findsOneWidget);
+    expect(find.text(AppStrings.playVideo), findsNothing);
   });
 
   testWidgets('save shows a confirmation snackbar', (tester) async {

@@ -125,18 +125,15 @@ void main() {
         '[Video](https://youtu.be/abcdefghijk)';
     late FakeGeminiService gemini;
     late FakeSync sync;
-    late FakeLinks links;
 
     DisplayController buildGemini(FakeTransportFactory factory) {
       gemini = FakeGeminiService();
       sync = FakeSync();
-      links = FakeLinks();
       return DisplayController(
         settingsService: settings,
         client: HermesWebSocketClient(transportFactory: factory.call),
         gemini: gemini,
         sync: sync,
-        links: links,
       );
     }
 
@@ -249,7 +246,7 @@ void main() {
       });
     });
 
-    test('saveRich posts the note to the hub; openVideo launches', () {
+    test('saveRich posts the note to the hub', () {
       fakeAsync((async) {
         final controller = buildGemini(FakeTransportFactory())..start();
         async.flushMicrotasks();
@@ -268,13 +265,6 @@ void main() {
         expect(uri.toString(), 'http://localhost:8900/save');
         expect(note.title, 'Cách làm trứng chiên');
         expect(note.category, NoteCategory.recipes);
-
-        controller.openVideo(controller.rich!.video!);
-        async.flushMicrotasks();
-        expect(
-          links.opened.single.toString(),
-          'https://www.youtube.com/watch?v=abcdefghijk',
-        );
         controller.dispose();
       });
     });
