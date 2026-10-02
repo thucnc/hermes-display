@@ -4,6 +4,8 @@ Hermes Display là client Flutter biến tablet (đặc biệt là Huawei MatePa
 
 Được thiết kế và implement hoàn toàn bởi **Claude Opus 5.5**.
 
+> 📘 **[Hướng dẫn Sử dụng (User Guide)](docs/USER_GUIDE.md)** — cài đặt APK, cấp quyền Huawei, Gemini, "Hey Sen", YouTube, Lưu vào Hermes, thành viên, đố vui/tiếng Anh, tùy biến Obsidian `Sen/`, khắc phục sự cố.
+
 ---
 
 ## 🌟 Tính năng chính
