@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -28,13 +29,16 @@ void main() {
   late FakeTtsPlayer player;
   late DisplayController controller;
 
-  Future<void> build({BrainMode brain = BrainMode.gemini}) async {
+  Future<void> build({
+    BrainMode brain = BrainMode.gemini,
+    FakeOutcome hubOutcome = FakeOutcome.accept,
+  }) async {
     SharedPreferences.setMockInitialValues({});
     final settings = await SettingsService.create();
     await settings.save(
       HubSettings.defaults.copyWith(geminiApiKey: 'key', brainMode: brain),
     );
-    hub = FakeTransportFactory();
+    hub = FakeTransportFactory(fallback: hubOutcome);
     mic = FakeMic();
     gemini = FakeGeminiService();
     hubTts = FakeHubTts();
@@ -135,5 +139,42 @@ void main() {
     await pumpEventQueue();
     expect(gemini.prompts, isEmpty);
     expect(controller.transcript, heard);
+  });
+
+  group('hub offline', () {
+    test('Gemini hears the WAV directly and answers', () async {
+      await build(hubOutcome: FakeOutcome.reject);
+      expect(await controller.listen(), ListenResult.started);
+      await speakAndStop();
+      expect(controller.state, DisplayState.thinking);
+      final wav = gemini.audios.single;
+      expect(ascii.decode(wav.sublist(0, 4)), 'RIFF');
+      expect(ascii.decode(wav.sublist(8, 12)), 'WAVE');
+      expect(wav.length, greaterThan(44));
+      expect(gemini.prompts, isEmpty);
+
+      gemini.answer(answer, transcript: heard);
+      await pumpEventQueue();
+      expect(controller.transcript, heard);
+      expect(controller.reply, answer);
+      expect(controller.state, DisplayState.speaking);
+      expect(hubTts.asked, isEmpty);
+      expect(player.played, isEmpty);
+    });
+
+    test('Gemini error returns to idle', () async {
+      await build(hubOutcome: FakeOutcome.reject);
+      await speakAndStop();
+      gemini.fail('boom');
+      await pumpEventQueue();
+      expect(controller.state, DisplayState.idle);
+      expect(controller.lastError, 'boom');
+    });
+
+    test('hub brain still refuses to listen', () async {
+      await build(brain: BrainMode.hub, hubOutcome: FakeOutcome.reject);
+      expect(await controller.listen(), ListenResult.offline);
+      expect(controller.state, DisplayState.idle);
+    });
   });
 }

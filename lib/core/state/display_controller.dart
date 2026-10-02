@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../services/audio/cue_player.dart';
 import '../../services/audio/keyword_tokens.dart' as tokens;
 import '../../services/audio/mic_keep_alive.dart';
 import '../../services/audio/tts_player.dart';
@@ -146,6 +148,12 @@ class DisplayController extends ChangeNotifier {
 
   /// Owner of the current turn; a hub drop only ends hub turns.
   BrainMode _turnBrain = BrainMode.hub;
+
+  /// PCM of the current capture, sent to Gemini when the hub is offline.
+  final BytesBuilder _capturePcm = BytesBuilder(copy: false);
+  static const String _ttsOffline = 'Hub offline: Gemini answer shown only';
+  static const String _ttsFailed = 'Hub TTS unavailable: answer shown only';
+  static const String _ttsPlayFailed = 'TTS playback failed';
   VoiceStatus? _voiceStatus;
   bool _starting = false;
   bool _screenWoken = false;
@@ -297,6 +305,7 @@ class DisplayController extends ChangeNotifier {
   Future<InstallResult> installUpdate() async {
     return await _updater?.install() ?? InstallResult.unsupported;
   }
+
   bool isPhotoUrl(String url) => PhotoManifestService.parseUrl(url) != null;
 
   void _startVoice() {
@@ -403,21 +412,35 @@ class DisplayController extends ChangeNotifier {
     return SendResult.sent;
   }
 
-  Future<void> _runGemini(GeminiService gemini, String text, int turn) async {
+  /// Standalone voice turn: Gemini transcribes [wav] and answers.
+  void _askGeminiAudio(GeminiService gemini, Uint8List wav) {
+    final turn = ++_geminiTurn;
+    _turnBrain = BrainMode.gemini;
+    transition(DisplayState.thinking);
+    unawaited(_runGemini(gemini, '', turn, audio: wav));
+  }
+
+  Future<void> _runGemini(
+    GeminiService gemini,
+    String spoken,
+    int turn, {
+    Uint8List? audio,
+  }) async {
     final member = this.member;
+    var text = spoken;
     final skill = SenSkill.detect(text) ?? _sessionSkill;
     final memory = _memory;
     final remembered = memory == null ? '' : await _recall(memory, member);
     if (_isStale(turn)) {
       return;
     }
+    final context = _contextFor(remembered, skill, member, text);
+    final key = _settings.geminiApiKey;
     final GeminiReply answer;
     try {
-      answer = await gemini.ask(
-        text,
-        _settings.geminiApiKey,
-        memoryContext: _contextFor(remembered, skill, member, text),
-      );
+      answer = audio == null
+          ? await gemini.ask(text, key, memoryContext: context)
+          : await gemini.askAudio(audio, key, memoryContext: context);
     } on GeminiException catch (error) {
       if (_isStale(turn)) {
         return;
@@ -428,6 +451,10 @@ class DisplayController extends ChangeNotifier {
     }
     if (_isStale(turn) || _state != DisplayState.thinking) {
       return;
+    }
+    if (audio != null) {
+      text = answer.transcript;
+      _transcript = text;
     }
     final content = skill?.parse(answer.text);
     _reply = content?.spoken ?? answer.text;
@@ -540,8 +567,8 @@ class DisplayController extends ChangeNotifier {
     unawaited(_settingsService.save(_settings));
   }
 
-  /// Reads the start of a Gemini answer aloud via the hub; on failure the
-  /// text stays on screen until the watchdog.
+  /// Reads the start of a Gemini answer aloud via the hub; offline or on
+  /// failure the text stays on screen until the watchdog.
   Future<void> _speakAnswer(String answer, int turn) async {
     final hubTts = _hubTts;
     final tts = _tts;
@@ -549,11 +576,23 @@ class DisplayController extends ChangeNotifier {
     if (hubTts == null || tts == null || summary.isEmpty) {
       return;
     }
-    final audio = await hubTts.fetch(_settings.ttsUri, summary);
-    if (audio == null || _isStale(turn) || _state != DisplayState.speaking) {
+    if (!_hubOnline) {
+      debugPrint(_ttsOffline);
       return;
     }
-    await tts.play(audio);
+    final audio = await hubTts.fetch(_settings.ttsUri, summary);
+    if (_isStale(turn) || _state != DisplayState.speaking) {
+      return;
+    }
+    if (audio == null) {
+      debugPrint(_ttsFailed);
+      return;
+    }
+    try {
+      await tts.play(audio);
+    } on Exception catch (error) {
+      debugPrint('$_ttsPlayFailed: $error');
+    }
   }
 
   bool _isStale(int turn) => _disposed || turn != _geminiTurn;
@@ -588,7 +627,7 @@ class DisplayController extends ChangeNotifier {
     if (_state == DisplayState.listening || _starting) {
       return ListenResult.busy;
     }
-    if (_connection != ConnectionStatus.connected) {
+    if (!_hubOnline && _voiceBrain != BrainMode.gemini) {
       await voice.endCapture();
       return ListenResult.offline;
     }
@@ -623,12 +662,23 @@ class DisplayController extends ChangeNotifier {
     };
   }
 
+  /// Gemini listens without the hub; the turn is then Gemini's so hub
+  /// reconnect attempts do not end it.
   bool wake() {
-    if (!_client.send(HermesCodec.command(WireType.wake))) {
+    final sent = _client.send(HermesCodec.command(WireType.wake));
+    if (!sent && _voiceBrain != BrainMode.gemini) {
       return false;
     }
-    return transition(DisplayState.listening);
+    if (!transition(DisplayState.listening)) {
+      return false;
+    }
+    if (!sent) {
+      _turnBrain = BrainMode.gemini;
+    }
+    return true;
   }
+
+  bool get _hubOnline => _connection == ConnectionStatus.connected;
 
   void cancel() {
     _geminiTurn++;
@@ -684,6 +734,7 @@ class DisplayController extends ChangeNotifier {
       return;
     }
     if (next == DisplayState.listening) {
+      _capturePcm.clear();
       _transcript = '';
       _reply = '';
       _rich = null;
@@ -784,6 +835,9 @@ class DisplayController extends ChangeNotifier {
           return;
         }
         _client.sendAudio(pcm);
+        if (_voiceBrain == BrainMode.gemini) {
+          _capturePcm.add(pcm);
+        }
         _level.value = level;
       case CaptureDone(:final reason):
         _onCaptureDone(reason);
@@ -831,12 +885,25 @@ class DisplayController extends ChangeNotifier {
     switch (reason) {
       case CaptureEnd.speechEnded:
       case CaptureEnd.maxLength:
-        _client.send(HermesCodec.audioEnd(_voiceBrain));
-        transition(DisplayState.thinking);
+        _endCapture();
       case CaptureEnd.noSpeech:
       case CaptureEnd.stopped:
         cancel();
     }
+  }
+
+  /// Hub transcribes when it heard the turn; otherwise Gemini hears the
+  /// WAV itself.
+  void _endCapture() {
+    final gemini = _gemini;
+    final hubHeard = _hubOnline && _turnBrain == BrainMode.hub;
+    if (gemini == null || hubHeard || _voiceBrain != BrainMode.gemini) {
+      _client.send(HermesCodec.audioEnd(_voiceBrain));
+      transition(DisplayState.thinking);
+      return;
+    }
+    final pcm = _capturePcm.takeBytes();
+    _askGeminiAudio(gemini, ToneSynth.wav(Int16List.sublistView(pcm)));
   }
 
   void _setVoiceStatus(VoiceStatus status) {

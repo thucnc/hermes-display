@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_display/services/gemini_service.dart';
@@ -119,5 +120,57 @@ void main() {
       body['system_instruction']['parts'][0]['text'],
       'Đang nói chuyện với: Mẹ\n\n${GeminiService.systemPrompt}',
     );
+  });
+
+  group('askAudio', () {
+    final wav = Uint8List.fromList([0x52, 0x49, 0x46, 0x46, 1, 2, 3]);
+
+    Future<(GeminiReply, Map<String, dynamic>)> run(String text) async {
+      late http.Request seen;
+      final service = HttpGeminiService(
+        client: MockClient((request) async {
+          seen = request;
+          return http.Response.bytes(utf8.encode(jsonEncode(reply(text))), 200);
+        }),
+      );
+      final answer = await service.askAudio(wav, key);
+      return (answer, jsonDecode(seen.body) as Map<String, dynamic>);
+    }
+
+    test('sends the WAV as inlineData and splits the transcript', () async {
+      final (answer, body) = await run(
+        '${GeminiService.transcriptTag} mấy giờ rồi\nBây giờ là 9 giờ.',
+      );
+      final parts = body['contents'][0]['parts'] as List;
+      expect(parts[0]['text'], GeminiService.audioPrompt);
+      expect(parts[1]['inlineData'], {
+        'mimeType': 'audio/wav',
+        'data': base64Encode(wav),
+      });
+      expect(answer.transcript, 'mấy giờ rồi');
+      expect(answer.text, 'Bây giờ là 9 giờ.');
+    });
+
+    test('bold tag is tolerated, missing tag keeps the whole text', () async {
+      final (bold, _) = await run(
+        '**${GeminiService.transcriptTag}** chào Sen\nChào bạn!',
+      );
+      expect(bold.transcript, 'chào Sen');
+      expect(bold.text, 'Chào bạn!');
+
+      final (plain, _) = await run('Chào bạn!');
+      expect(plain.transcript, isEmpty);
+      expect(plain.text, 'Chào bạn!');
+    });
+
+    test('missing key throws', () async {
+      final service = HttpGeminiService(
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+      await expectLater(
+        service.askAudio(wav, ''),
+        throwsA(isA<GeminiException>()),
+      );
+    });
   });
 }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -6,14 +7,25 @@ import '../core/constants/app_constants.dart';
 import '../core/media/rich_content.dart';
 
 class GeminiReply {
-  const GeminiReply({required this.text, this.videos = const []});
+  const GeminiReply({
+    required this.text,
+    this.videos = const [],
+    this.transcript = '',
+  });
 
   /// Videos are taken from [text] only.
-  factory GeminiReply.of(String text) {
-    return GeminiReply(text: text, videos: YouTubeVideo.extract(text));
+  factory GeminiReply.of(String text, {String transcript = ''}) {
+    return GeminiReply(
+      text: text,
+      videos: YouTubeVideo.extract(text),
+      transcript: transcript,
+    );
   }
 
   final String text;
+
+  /// What Gemini heard in an audio question; empty for text questions.
+  final String transcript;
 
   /// YouTube links from the answer text and its search sources.
   final List<YouTubeVideo> videos;
@@ -42,6 +54,22 @@ abstract interface class GeminiService {
     String apiKey, {
     String memoryContext = '',
   });
+
+  /// Marks the transcript line Gemini writes before an audio answer.
+  static const String transcriptTag = 'HỎI:';
+
+  static const String audioPrompt =
+      'Câu hỏi nằm trong đoạn ghi âm đính kèm. Dòng đầu tiên chép lại '
+      'nguyên văn câu hỏi, bắt đầu bằng "$transcriptTag". Sau đó xuống '
+      'dòng và trả lời.';
+
+  /// [wav] is the recorded question (PCM16 mono WAV); Gemini transcribes
+  /// and answers in one call, no hub needed. Throws like [ask].
+  Future<GeminiReply> askAudio(
+    Uint8List wav,
+    String apiKey, {
+    String memoryContext = '',
+  });
 }
 
 abstract final class _Key {
@@ -60,6 +88,9 @@ abstract final class _Key {
   static const String chunks = 'groundingChunks';
   static const String web = 'web';
   static const String uri = 'uri';
+  static const String inlineData = 'inlineData';
+  static const String mimeType = 'mimeType';
+  static const String data = 'data';
 }
 
 abstract final class _Error {
@@ -77,6 +108,9 @@ final class HttpGeminiService implements GeminiService {
   static const int _httpOk = 200;
   static const String _jsonType = 'application/json; charset=utf-8';
   static const String _contextGap = '\n\n';
+  static const String _wavType = 'audio/wav';
+  static const String _newline = '\n';
+  static const String _markdownBold = '*';
 
   @override
   Future<GeminiReply> ask(
@@ -84,6 +118,34 @@ final class HttpGeminiService implements GeminiService {
     String apiKey, {
     String memoryContext = '',
   }) async {
+    return _post(apiKey, [
+      {_Key.text: prompt},
+    ], memoryContext);
+  }
+
+  @override
+  Future<GeminiReply> askAudio(
+    Uint8List wav,
+    String apiKey, {
+    String memoryContext = '',
+  }) async {
+    final reply = await _post(apiKey, [
+      {_Key.text: GeminiService.audioPrompt},
+      {
+        _Key.inlineData: {
+          _Key.mimeType: _wavType,
+          _Key.data: base64Encode(wav),
+        },
+      },
+    ], memoryContext);
+    return _splitTranscript(reply);
+  }
+
+  Future<GeminiReply> _post(
+    String apiKey,
+    List<Map<String, Object?>> parts,
+    String memoryContext,
+  ) async {
     if (apiKey.isEmpty) {
       throw const GeminiException(_Error.noKey);
     }
@@ -93,7 +155,7 @@ final class HttpGeminiService implements GeminiService {
           .post(
             _endpoint(apiKey),
             headers: {'content-type': _jsonType},
-            body: jsonEncode(_payload(prompt, memoryContext)),
+            body: jsonEncode(_payload(parts, memoryContext)),
           )
           .timeout(GeminiDefaults.timeout);
     } on Exception {
@@ -115,7 +177,31 @@ final class HttpGeminiService implements GeminiService {
     );
   }
 
-  static Map<String, Object?> _payload(String prompt, String context) {
+  /// Moves a leading "[transcriptTag] ..." line out of the answer.
+  static GeminiReply _splitTranscript(GeminiReply reply) {
+    final text = reply.text;
+    final cut = text.indexOf(_newline);
+    final first = (cut < 0 ? text : text.substring(0, cut))
+        .replaceAll(_markdownBold, '')
+        .trim();
+    if (!first.startsWith(GeminiService.transcriptTag)) {
+      return reply;
+    }
+    final rest = cut < 0 ? '' : text.substring(cut + 1).trim();
+    if (rest.isEmpty) {
+      return reply;
+    }
+    return GeminiReply(
+      text: rest,
+      videos: reply.videos,
+      transcript: first.substring(GeminiService.transcriptTag.length).trim(),
+    );
+  }
+
+  static Map<String, Object?> _payload(
+    List<Map<String, Object?>> parts,
+    String context,
+  ) {
     final system = context.isEmpty
         ? GeminiService.systemPrompt
         : '$context$_contextGap${GeminiService.systemPrompt}';
@@ -126,12 +212,7 @@ final class HttpGeminiService implements GeminiService {
         ],
       },
       _Key.contents: [
-        {
-          _Key.role: _Key.user,
-          _Key.parts: [
-            {_Key.text: prompt},
-          ],
-        },
+        {_Key.role: _Key.user, _Key.parts: parts},
       ],
       _Key.tools: [
         {_Key.googleSearch: <String, Object?>{}},
