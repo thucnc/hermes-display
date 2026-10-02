@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hermes_display/core/constants/app_constants.dart';
 import 'package:hermes_display/core/state/brain_mode.dart';
 import 'package:hermes_display/core/state/display_controller.dart';
 import 'package:hermes_display/services/hermes_websocket_client.dart';
@@ -73,7 +74,7 @@ void main() {
     await tester.tap(find.text(AppStrings.save));
     await tester.pumpAndSettle();
     expect(find.text(AppStrings.keywordUnsupported), findsOneWidget);
-    expect(controller.settings.wakeKeyword, 'HEY SEN');
+    expect(controller.settings.wakeKeyword, HubDefaults.wakeKeyword);
   });
 
   testWidgets('saves the always-listening toggle', (tester) async {

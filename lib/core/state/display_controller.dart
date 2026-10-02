@@ -681,10 +681,16 @@ class DisplayController extends ChangeNotifier {
     }
   }
 
-  Future<ListenResult> _beginListening(WakeWordService voice) async {
-    debugPrint('_beginListening: playCue');
-    await voice.playCue();
-    final status = await voice.beginCapture();
+  Future<ListenResult> _beginListening(
+    WakeWordService voice, {
+    bool playCue = true,
+    Duration? noSpeech,
+  }) async {
+    if (playCue) {
+      debugPrint('_beginListening: playCue');
+      await voice.playCue();
+    }
+    final status = await voice.beginCapture(noSpeech: noSpeech);
     debugPrint('_beginListening: beginCapture returned $status');
     _setVoiceStatus(status);
     if (status != VoiceStatus.ready) {
@@ -791,6 +797,7 @@ class DisplayController extends ChangeNotifier {
         debugPrint('Gemini LiveSaid chunk: "$text"');
         _liveAnswering();
         _reply = '$_reply$text';
+        _rich = RichContent.parse(question: _transcript, reply: _reply);
         notifyListeners();
       case LiveAudio(:final pcm, :final sampleRate):
         _onLiveAudio(pcm, sampleRate);
@@ -976,6 +983,22 @@ class DisplayController extends ChangeNotifier {
   void _onSpoken(void _) {
     debugPrint('_onSpoken fired, state=$_state, speaking=$_speaking');
     if (_state != DisplayState.speaking) {
+      return;
+    }
+    // Seamless follow-up if Gemini Live session is open
+    final live = _live;
+    final voice = _voice;
+    if (live != null && _liveVoice && live.isOpen && voice != null) {
+      debugPrint('Gemini Live session open -> waiting echoTail then listening for follow-up');
+      Timer(VoiceTiming.echoTail, () {
+        if (_state == DisplayState.speaking && live.isOpen) {
+          _beginListening(
+            voice,
+            playCue: false,
+            noSpeech: VoiceTiming.followUpNoSpeech,
+          );
+        }
+      });
       return;
     }
     transition(DisplayState.idle);

@@ -21,13 +21,13 @@ final class Endpointer {
   Endpointer({
     this.speechRms = VoiceLevels.speechRms,
     this.endSilence = VoiceTiming.endSilence,
-    this.noSpeech = VoiceTiming.noSpeech,
+    Duration? noSpeech,
     this.maxUtterance = VoiceTiming.maxUtterance,
-  });
+  }) : noSpeech = noSpeech ?? VoiceTiming.noSpeech;
 
   final double speechRms;
   final Duration endSilence;
-  final Duration noSpeech;
+  Duration noSpeech;
   final Duration maxUtterance;
 
   Duration _elapsed = Duration.zero;
@@ -52,7 +52,10 @@ final class Endpointer {
     return _silence >= endSilence ? CaptureEnd.speechEnded : null;
   }
 
-  void reset() {
+  void reset({Duration? noSpeech}) {
+    if (noSpeech != null) {
+      this.noSpeech = noSpeech;
+    }
     _elapsed = Duration.zero;
     _silence = Duration.zero;
     _heardSpeech = false;

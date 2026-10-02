@@ -249,7 +249,7 @@ class WakeWordService {
 
   /// Starts forwarding speech. Retries permission so a user who denied
   /// it once can still grant it from the mic button.
-  Future<VoiceStatus> beginCapture() async {
+  Future<VoiceStatus> beginCapture({Duration? noSpeech}) async {
     if (_phase == VoicePhase.off || _phase == VoicePhase.paused) {
       return status;
     }
@@ -261,7 +261,7 @@ class WakeWordService {
       return status;
     }
     _micFailed = false;
-    _endpointer.reset();
+    _endpointer.reset(noSpeech: noSpeech);
     _phase = VoicePhase.capturing;
     await _sync();
     if (_lease?.owner == MicOwner.voiceTurn && micOpen) {

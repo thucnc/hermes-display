@@ -6,11 +6,12 @@ abstract final class AppStrings {
   static const String statusConnecting = 'Đang kết nối…';
   static const String statusDisconnected = 'Mất kết nối';
 
-  static const String micArmed = 'Đang chờ "Hey Sen"';
+  static const String micArmed = 'Đang chờ "Alo Sen"';
   static const String micManual = 'Chỉ dùng nút micro';
   static const String micOff = 'Micro không khả dụng';
 
   static const String listening = 'Đang nghe…';
+  static const String listeningMore = 'Đang lắng nghe tiếp…';
   static const String thinking = 'Đang suy nghĩ…';
 
   static const String inputHint = 'Nhập câu hỏi cho Hermes…';
@@ -22,7 +23,7 @@ abstract final class AppStrings {
   static const String hubHost = 'Địa chỉ Hub (IP / hostname)';
   static const String hubPort = 'Cổng';
   static const String slideInterval = 'Chuyển ảnh mỗi';
-  static const String wakeSensitivity = 'Độ nhạy từ khoá "Hey Sen"';
+  static const String wakeSensitivity = 'Độ nhạy từ khoá "Alo Sen"';
   static const String wakeKeyword = 'Từ khoá đánh thức';
   static const String invalidKeyword = 'Nhập từ khoá';
   static const String keywordUnsupported =

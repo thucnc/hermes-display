@@ -28,10 +28,10 @@ class YouTubeVideo {
   static const String _thumbHost = 'img.youtube.com';
   static const String _thumbFile = 'hqdefault.jpg';
 
-  /// watch?v=, youtu.be/ and shorts/ links; ids are always 11 chars.
+  /// watch?v=, youtu.be/, shorts/, embed/ and live/ links; ids are always 11 chars.
   static final RegExp _link = RegExp(
     r'(?:https?://)?(?:www\.|m\.)?'
-    r'(?:youtube\.com/(?:watch\?(?:[^\s)\]]*&)?v=|shorts/)|youtu\.be/)'
+    r'(?:youtube\.com/(?:watch\?(?:[^\s)\]]*&)?v=|shorts/|embed/|live/)|youtu\.be/)'
     r'([A-Za-z0-9_-]{11})',
   );
   static final RegExp _markdown = RegExp(r'\[([^\]]+)\]\(([^)\s]+)\)');
