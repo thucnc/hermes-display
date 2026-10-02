@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import '../widgets/ambient_clock.dart';
 import '../widgets/legibility_scrim.dart';
 import '../widgets/member_switcher.dart';
+import '../widgets/photo_caption.dart';
 import '../widgets/photo_slideshow.dart';
 import '../widgets/quick_input_bar.dart';
 import '../widgets/rich_card.dart';
@@ -16,18 +17,16 @@ import '../widgets/status_badge.dart';
 import '../widgets/voice_overlay.dart';
 
 class AmbientScreen extends StatelessWidget {
-  const AmbientScreen({
-    super.key,
-    required this.controller,
-    this.photos = SlideDeck.defaultPhotos,
-  });
+  const AmbientScreen({super.key, required this.controller});
 
   final DisplayController controller;
-  final List<String> photos;
 
   static const double _clockLandscape = 0.24;
   static const double _clockPortrait = 0.28;
   static const double _dimmedOpacity = 0.35;
+
+  /// Photo caption sits below the member switcher.
+  static const double _captionTop = 96;
 
   /// Slideshow/clock opacity inside the night dim window.
   static const double nightOpacity = 0.7;
@@ -65,7 +64,7 @@ class AmbientScreen extends StatelessWidget {
               opacity: night,
               child: PhotoSlideshow(
                 interval: settings.slideInterval,
-                photos: photos,
+                frame: controller.photos,
               ),
             ),
             LegibilityScrim(
@@ -91,6 +90,17 @@ class AmbientScreen extends StatelessWidget {
                       members: controller.members,
                       activeId: controller.member.id,
                       onSelect: controller.selectMember,
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.topCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: _captionTop),
+                      child: AnimatedOpacity(
+                        duration: Motion.overlay,
+                        opacity: active ? 0 : night,
+                        child: PhotoCaption(frame: controller.photos),
+                      ),
                     ),
                   ),
                   Align(

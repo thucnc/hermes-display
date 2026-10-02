@@ -19,6 +19,7 @@ class HubSettings {
     this.brainMode = HubDefaults.brainMode,
     this.activeMemberId = HubDefaults.activeMemberId,
     this.knowledgePackUrl = HubDefaults.knowledgePackUrl,
+    this.photoManifestUrl = HubDefaults.photoManifestUrl,
   });
 
   static const HubSettings defaults = HubSettings(
@@ -33,6 +34,7 @@ class HubSettings {
     brainMode: HubDefaults.brainMode,
     activeMemberId: HubDefaults.activeMemberId,
     knowledgePackUrl: HubDefaults.knowledgePackUrl,
+    photoManifestUrl: HubDefaults.photoManifestUrl,
   );
 
   final String host;
@@ -59,6 +61,9 @@ class HubSettings {
 
   /// Where `sen-pack.json` is downloaded from; empty means none.
   final String knowledgePackUrl;
+
+  /// Where `photos.json` is downloaded from; empty means placeholders.
+  final String photoManifestUrl;
 
   /// Gemini only when chosen and a key exists, otherwise the hub.
   BrainMode get activeBrain {
@@ -110,6 +115,7 @@ class HubSettings {
     BrainMode? brainMode,
     String? activeMemberId,
     String? knowledgePackUrl,
+    String? photoManifestUrl,
   }) {
     return HubSettings(
       host: host ?? this.host,
@@ -123,6 +129,7 @@ class HubSettings {
       brainMode: brainMode ?? this.brainMode,
       activeMemberId: activeMemberId ?? this.activeMemberId,
       knowledgePackUrl: knowledgePackUrl ?? this.knowledgePackUrl,
+      photoManifestUrl: photoManifestUrl ?? this.photoManifestUrl,
     );
   }
 
@@ -151,6 +158,7 @@ class HubSettings {
       brainMode: brainMode,
       activeMemberId: memberId.isEmpty ? HubDefaults.activeMemberId : memberId,
       knowledgePackUrl: knowledgePackUrl.trim(),
+      photoManifestUrl: photoManifestUrl.trim(),
     );
   }
 }
@@ -170,6 +178,7 @@ abstract final class _PrefKey {
   static const String brainMode = 'brain_mode';
   static const String activeMember = 'active_member_id';
   static const String packUrl = 'knowledge_pack_url';
+  static const String photoUrl = 'photo_manifest_url';
 }
 
 class SettingsService {
@@ -205,6 +214,8 @@ class SettingsService {
           _prefs.getString(_PrefKey.activeMember) ?? fallback.activeMemberId,
       knowledgePackUrl:
           _prefs.getString(_PrefKey.packUrl) ?? fallback.knowledgePackUrl,
+      photoManifestUrl:
+          _prefs.getString(_PrefKey.photoUrl) ?? fallback.photoManifestUrl,
     ).normalized();
   }
 
@@ -234,6 +245,7 @@ class SettingsService {
       _prefs.setString(_PrefKey.brainMode, value.brainMode.name),
       _prefs.setString(_PrefKey.activeMember, value.activeMemberId),
       _prefs.setString(_PrefKey.packUrl, value.knowledgePackUrl),
+      _prefs.setString(_PrefKey.photoUrl, value.photoManifestUrl),
     ]);
   }
 }

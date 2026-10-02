@@ -18,6 +18,9 @@ abstract final class HubDefaults {
 
   /// Empty: no remote knowledge pack, built-in family and skills.
   static const String knowledgePackUrl = '';
+
+  /// Empty: placeholder slideshow instead of family photos.
+  static const String photoManifestUrl = '';
 }
 
 /// Accepted ranges for user-editable settings.
@@ -137,4 +140,27 @@ abstract final class HubTtsDefaults {
   static const String path = '/tts';
   static const String textParam = 'text';
   static const Duration timeout = Duration(seconds: 15);
+}
+
+/// Family photo frame: `photos.json` download and on-disk image cache.
+abstract final class PhotoDefaults {
+  static const Duration manifestTimeout = Duration(seconds: 10);
+  static const Duration downloadTimeout = Duration(seconds: 30);
+
+  /// Manifest re-checked this often while the slideshow runs.
+  static const Duration refreshEvery = Duration(hours: 1);
+
+  /// LRU cap for downloaded photos.
+  static const int cacheBytes = 300 * 1024 * 1024;
+  static const String cacheDir = 'photo_cache';
+
+  /// Shown when no family manifest is configured.
+  static const List<String> deck = [
+    'https://picsum.photos/seed/hermes-1/1920/1280',
+    'https://picsum.photos/seed/hermes-2/1920/1280',
+    'https://picsum.photos/seed/hermes-3/1920/1280',
+    'https://picsum.photos/seed/hermes-4/1920/1280',
+    'https://picsum.photos/seed/hermes-5/1920/1280',
+    'https://picsum.photos/seed/hermes-6/1920/1280',
+  ];
 }

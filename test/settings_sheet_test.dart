@@ -205,4 +205,29 @@ void main() {
       expect(controller.settings.knowledgePackUrl, url);
     });
   });
+
+  group('photo manifest', () {
+    const url = 'http://192.168.1.5:8901/api/photos/manifest';
+    final photoField = find.widgetWithText(TextFormField, AppStrings.photoUrl);
+
+    Future<void> save(WidgetTester tester, String text) async {
+      await open(tester);
+      await tester.ensureVisible(photoField);
+      await tester.enterText(photoField, text);
+      await tester.ensureVisible(find.text(AppStrings.save));
+      await tester.tap(find.text(AppStrings.save));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('saves the photo URL', (tester) async {
+      await save(tester, ' $url ');
+      expect(controller.settings.photoManifestUrl, url);
+    });
+
+    testWidgets('a bad photo URL blocks saving', (tester) async {
+      await save(tester, 'photos.json');
+      expect(find.text(AppStrings.invalidPackUrl), findsOneWidget);
+      expect(controller.settings.photoManifestUrl, isEmpty);
+    });
+  });
 }

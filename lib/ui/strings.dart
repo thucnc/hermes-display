@@ -75,6 +75,11 @@ abstract final class AppStrings {
   static const String syncUnchanged = 'Gói tri thức đã mới nhất';
   static const String syncInvalid = 'Gói tri thức không hợp lệ';
   static const String syncFailed = 'Không tải được gói tri thức';
+  static const String photoUrl = 'URL Ảnh Gia Đình (Photo Manifest URL)';
+  static const String photoUrlHint =
+      'photos.json từ Hub (/api/photos/manifest) hoặc host bất kỳ; để trống '
+      'để dùng ảnh mẫu';
+  static const String onThisDay = 'Ngày này năm xưa';
 
   static const String playVideo = 'Phát Video';
   static const String videoFallbackTitle = 'Video YouTube';
