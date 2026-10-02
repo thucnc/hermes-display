@@ -626,7 +626,7 @@ class DisplayController extends ChangeNotifier {
       _liveTurn = _LiveTurn.streaming;
       await _openLive(live, turn);
       if (!_isStale(turn) && live.isOpen) {
-        live.sendText('Đọc to đoạn này: $summary');
+        live.sendText(summary);
       }
       return;
     }
@@ -757,6 +757,7 @@ class DisplayController extends ChangeNotifier {
     if (_isStale(turn) || result == LiveOpen.ready) {
       return;
     }
+    // Only fall back to WAV mode if this turn is still the active one
     _onLiveLost();
   }
 
@@ -836,8 +837,11 @@ class DisplayController extends ChangeNotifier {
       _pcm?.finish();
       return;
     }
-    _lastError = _liveLost;
-    _forceIdle();
+    // Only set error and force idle if we actually failed during thinking/speaking
+    if (_state == DisplayState.thinking) {
+      _lastError = _liveLost;
+      _forceIdle();
+    }
   }
 
   void _closeLive() {
@@ -1082,7 +1086,11 @@ class DisplayController extends ChangeNotifier {
         _endCapture();
       case CaptureEnd.noSpeech:
       case CaptureEnd.stopped:
-        cancel();
+        if (_capturePcm.length > 0 || _liveTurn == _LiveTurn.streaming) {
+          _endCapture();
+        } else {
+          cancel();
+        }
     }
   }
 
@@ -1102,7 +1110,11 @@ class DisplayController extends ChangeNotifier {
       return;
     }
     final pcm = _capturePcm.takeBytes();
-    _askGeminiAudio(gemini, ToneSynth.wav(Int16List.sublistView(pcm)));
+    if (pcm.isNotEmpty) {
+      _askGeminiAudio(gemini, ToneSynth.wav(Int16List.sublistView(pcm)));
+    } else {
+      cancel();
+    }
   }
 
   void _setVoiceStatus(VoiceStatus status) {
