@@ -141,7 +141,8 @@ abstract final class GeminiLiveDefaults {
   static const String model = 'models/gemini-3.8-live';
 
   /// Prebuilt voices: Puck, Aoede, Fenrir, Kore, Leda.
-  static const String voice = 'Puck';
+  /// Aoede: upbeat, cheerful, bright female voice.
+  static const String voice = 'Aoede';
   static const String inputMime = 'audio/pcm;rate=16000';
 
   /// Used when a reply chunk's mime type names no rate.

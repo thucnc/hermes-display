@@ -23,12 +23,16 @@ final class Endpointer {
     this.endSilence = VoiceTiming.endSilence,
     Duration? noSpeech,
     this.maxUtterance = VoiceTiming.maxUtterance,
-  }) : noSpeech = noSpeech ?? VoiceTiming.noSpeech;
+  })  : defaultNoSpeech = noSpeech ?? VoiceTiming.noSpeech,
+        _turnNoSpeech = noSpeech ?? VoiceTiming.noSpeech;
 
   final double speechRms;
   final Duration endSilence;
-  Duration noSpeech;
+  final Duration defaultNoSpeech;
+  Duration _turnNoSpeech;
   final Duration maxUtterance;
+
+  Duration get noSpeech => _turnNoSpeech;
 
   Duration _elapsed = Duration.zero;
   Duration _silence = Duration.zero;
@@ -47,15 +51,13 @@ final class Endpointer {
       return CaptureEnd.maxLength;
     }
     if (!_heardSpeech) {
-      return _elapsed >= noSpeech ? CaptureEnd.noSpeech : null;
+      return _elapsed >= _turnNoSpeech ? CaptureEnd.noSpeech : null;
     }
     return _silence >= endSilence ? CaptureEnd.speechEnded : null;
   }
 
   void reset({Duration? noSpeech}) {
-    if (noSpeech != null) {
-      this.noSpeech = noSpeech;
-    }
+    _turnNoSpeech = noSpeech ?? defaultNoSpeech;
     _elapsed = Duration.zero;
     _silence = Duration.zero;
     _heardSpeech = false;

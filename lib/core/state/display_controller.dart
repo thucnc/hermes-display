@@ -42,6 +42,8 @@ enum SendResult { sent, empty, offline }
 
 enum ListenResult { started, busy, offline, noPermission, micUnavailable }
 
+enum ListenMode { fresh, followUp }
+
 /// How the current voice turn reaches Gemini Live.
 enum _LiveTurn { none, streaming, failed }
 
@@ -132,6 +134,13 @@ class DisplayController extends ChangeNotifier {
   /// Member and key the warm session was set up for.
   (String, String)? _liveOwner;
   Timer? _liveIdle;
+  Timer? _echoTail;
+  ListenMode _listenMode = ListenMode.fresh;
+
+  void _cancelEchoTail() {
+    _echoTail?.cancel();
+    _echoTail = null;
+  }
   static const String _liveLost = 'Mất kết nối Gemini Live';
 
   /// Null: no APK over-the-air updates.
@@ -211,9 +220,20 @@ class DisplayController extends ChangeNotifier {
   ValueListenable<bool> get nightDimmed => _dimmer?.dimmed ?? _neverDimmed;
 
   /// Any touch on the display: full brightness for a short while, and
-  /// silences a reply being spoken.
+  /// silences a reply being spoken or triggers barge-in to follow-up.
   void touch() {
     _dimmer?.touch();
+    if (_state == DisplayState.speaking) {
+      _stopSpeech();
+      _cancelEchoTail();
+      final live = _live;
+      final voice = _voice;
+      if (live != null && _liveVoice && live.isOpen && voice != null) {
+        debugPrint('Touch barge-in -> moving to follow-up listening');
+        _beginListening(voice, mode: ListenMode.followUp);
+        return;
+      }
+    }
     _stopSpeech();
   }
 
@@ -683,13 +703,16 @@ class DisplayController extends ChangeNotifier {
 
   Future<ListenResult> _beginListening(
     WakeWordService voice, {
-    bool playCue = true,
-    Duration? noSpeech,
+    ListenMode mode = ListenMode.fresh,
   }) async {
-    if (playCue) {
+    _listenMode = mode;
+    if (mode == ListenMode.fresh) {
       debugPrint('_beginListening: playCue');
       await voice.playCue();
     }
+    final noSpeech = mode == ListenMode.followUp
+        ? VoiceTiming.followUpNoSpeech
+        : VoiceTiming.noSpeech;
     final status = await voice.beginCapture(noSpeech: noSpeech);
     debugPrint('_beginListening: beginCapture returned $status');
     _setVoiceStatus(status);
@@ -762,6 +785,7 @@ class DisplayController extends ChangeNotifier {
     }
     final instruction = [
       member.pronounRule,
+      'Bạn là Bé Sen, trợ lý thông minh gia đình. Hãy luôn trả lời với giọng nữ vui vẻ, hoạt bát, tràn đầy năng lượng. Nói với tốc độ nhanh, dứt khoát, tự nhiên và ngắn gọn, không rề rà kéo dài câu chữ.',
       'Tuyệt đối KHÔNG tự động nói hoặc chào khi mới mở kết nối. Bạn chỉ được phép trả lời khi người dùng đã hỏi hoặc nói xong.',
       remembered,
       GeminiService.systemPrompt,
@@ -888,6 +912,7 @@ class DisplayController extends ChangeNotifier {
 
   void cancel() {
     _geminiTurn++;
+    _cancelEchoTail();
     _closeLive();
     _client.send(HermesCodec.command(WireType.cancel));
     _forceIdle();
@@ -945,7 +970,9 @@ class DisplayController extends ChangeNotifier {
       _capturePcm.clear();
       _transcript = '';
       _reply = '';
-      _rich = null;
+      if (_listenMode != ListenMode.followUp) {
+        _rich = null;
+      }
       return;
     }
     if (next == DisplayState.thinking) {
@@ -990,13 +1017,10 @@ class DisplayController extends ChangeNotifier {
     final voice = _voice;
     if (live != null && _liveVoice && live.isOpen && voice != null) {
       debugPrint('Gemini Live session open -> waiting echoTail then listening for follow-up');
-      Timer(VoiceTiming.echoTail, () {
+      _cancelEchoTail();
+      _echoTail = Timer(VoiceTiming.echoTail, () {
         if (_state == DisplayState.speaking && live.isOpen) {
-          _beginListening(
-            voice,
-            playCue: false,
-            noSpeech: VoiceTiming.followUpNoSpeech,
-          );
+          _beginListening(voice, mode: ListenMode.followUp);
         }
       });
       return;
@@ -1128,6 +1152,12 @@ class DisplayController extends ChangeNotifier {
         _endCapture();
       case CaptureEnd.noSpeech:
       case CaptureEnd.stopped:
+        if (_listenMode == ListenMode.followUp && _capturePcm.isEmpty) {
+          debugPrint('Follow-up silence -> quietly closing session and going idle');
+          _closeLive();
+          _forceIdle();
+          return;
+        }
         if (_capturePcm.length > 0 || _liveTurn == _LiveTurn.streaming) {
           _endCapture();
         } else {
@@ -1203,6 +1233,7 @@ class DisplayController extends ChangeNotifier {
     }
     _watchdog?.cancel();
     _liveIdle?.cancel();
+    _cancelEchoTail();
     _packTimer?.cancel();
     _lifecycle?.dispose();
     _updater?.dispose();
