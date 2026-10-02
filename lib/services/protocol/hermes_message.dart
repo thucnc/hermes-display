@@ -20,7 +20,8 @@ abstract final class WireBrain {
   static const String gemini = 'gemini';
 }
 
-/// Message `type` values. Incoming: state, tts, transcript, level, error.
+/// Message `type` values. Incoming: state, tts, transcript, level, error,
+/// pack_updated.
 /// Outgoing: text_input, wake, cancel, audio_end. Between `wake` and
 /// `audio_end` the client streams binary frames of PCM16 LE mono 16 kHz.
 abstract final class WireType {
@@ -29,6 +30,7 @@ abstract final class WireType {
   static const String transcript = 'transcript';
   static const String level = 'level';
   static const String error = 'error';
+  static const String packUpdated = 'pack_updated';
   static const String textInput = 'text_input';
   static const String wake = 'wake';
   static const String cancel = 'cancel';
@@ -66,6 +68,11 @@ final class LevelMessage extends HermesMessage {
 final class ErrorMessage extends HermesMessage {
   const ErrorMessage(this.text);
   final String text;
+}
+
+/// The hub's `Sen/` folder changed; the knowledge pack should be fetched.
+final class PackUpdatedMessage extends HermesMessage {
+  const PackUpdatedMessage();
 }
 
 abstract final class HermesCodec {
@@ -128,6 +135,8 @@ abstract final class HermesCodec {
         return LevelMessage(level.toDouble().clamp(_minLevel, _maxLevel));
       case WireType.error:
         return ErrorMessage(text ?? '');
+      case WireType.packUpdated:
+        return const PackUpdatedMessage();
     }
     return null;
   }

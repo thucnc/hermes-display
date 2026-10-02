@@ -1,12 +1,19 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hermes_display/app.dart';
 import 'package:hermes_display/core/state/display_controller.dart';
 import 'package:hermes_display/core/dimming/dim_schedule.dart';
+import 'package:hermes_display/core/update/app_release.dart';
 import 'package:hermes_display/services/audio/mic_source.dart';
 import 'package:hermes_display/services/hermes_websocket_client.dart';
 import 'package:hermes_display/services/night_dimmer.dart';
 import 'package:hermes_display/services/settings_service.dart';
+import 'package:hermes_display/services/update/app_platform.dart';
+import 'package:hermes_display/services/update/app_updater.dart';
 import 'package:hermes_display/services/wake_word_service.dart';
 import 'package:hermes_display/ui/screens/ambient_screen.dart';
 import 'package:hermes_display/ui/strings.dart';
@@ -15,8 +22,12 @@ import 'package:hermes_display/ui/widgets/member_switcher.dart';
 import 'package:hermes_display/ui/widgets/photo_slideshow.dart';
 import 'package:hermes_display/ui/widgets/rich_card.dart';
 import 'package:hermes_display/ui/widgets/status_badge.dart';
+import 'package:hermes_display/ui/widgets/update_badge.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/fake_app_platform.dart';
 import 'support/fake_gemini_service.dart';
 import 'support/fake_screen.dart';
 import 'support/fake_sync.dart';
@@ -256,5 +267,70 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
     controller.dispose();
+  });
+
+  testWidgets('a downloaded update shows a badge that opens the installer', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final apk = utf8.encode('PK-apk');
+    final cache = await tester.runAsync(
+      () => Directory.systemTemp.createTemp('badge'),
+    );
+    // Unknown version at launch keeps the boot check off real file IO.
+    final platform = FakeAppPlatform()..installed = null;
+    final controller = DisplayController(
+      settingsService: await SettingsService.create(),
+      client: HermesWebSocketClient(
+        transportFactory: FakeTransportFactory().call,
+      ),
+      updater: AppUpdater(
+        platform: platform,
+        cacheRoot: () async => cache!,
+        client: MockClient((request) async {
+          if (request.url.path.endsWith('.apk')) {
+            return http.Response.bytes(apk, 200);
+          }
+          return http.Response(
+            jsonEncode({
+              'versionCode': 5,
+              'versionName': '0.5.2',
+              'url': '/api/app/apk/hermes-display-5.apk',
+              'sha256': sha256.convert(apk).toString(),
+            }),
+            200,
+          );
+        }),
+      ),
+    )..start();
+    await tester.pumpWidget(
+      HermesApp(controller: controller, photos: const []),
+    );
+    await tester.pump();
+    expect(find.byType(UpdateBadge), findsNothing);
+
+    platform.installed = const AppVersion(4, '0.5.1');
+    final result = await tester.runAsync(controller.checkUpdate);
+    expect(result, UpdateCheck.ready);
+    await tester.pump();
+    expect(
+      find.text(
+        '${AppStrings.updateAvailable} v0.5.2 — ${AppStrings.updateTapToInstall}',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byType(UpdateBadge));
+    await tester.pump();
+    expect(platform.installs.single, endsWith('hermes-display-5.apk'));
+
+    platform.reply = InstallResult.needsPermission;
+    await tester.tap(find.byType(UpdateBadge));
+    await tester.pump();
+    expect(find.text(AppStrings.updateNeedsPermission), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox());
+    controller.dispose();
+    await tester.runAsync(() => cache!.delete(recursive: true));
   });
 }

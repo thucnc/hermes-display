@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import '../../services/audio/keyword_tokens.dart' as tokens;
 import '../../services/audio/mic_keep_alive.dart';
@@ -16,6 +17,8 @@ import '../../services/screen/screen_control.dart';
 import '../../services/sen_memory_service.dart';
 import '../../services/sen_pack_service.dart';
 import '../../services/settings_service.dart';
+import '../../services/update/app_platform.dart';
+import '../../services/update/app_updater.dart';
 import '../../services/wake_word_service.dart';
 import '../constants/app_constants.dart';
 import '../media/rich_content.dart';
@@ -49,6 +52,7 @@ class DisplayController extends ChangeNotifier {
     HubTtsService? hubTts,
     SenMemoryService? memory,
     SenPackService? pack,
+    AppUpdater? updater,
   }) : _settingsService = settingsService,
        _client = client,
        _voice = voice,
@@ -62,6 +66,7 @@ class DisplayController extends ChangeNotifier {
        _hubTts = hubTts,
        _memory = memory,
        _pack = pack,
+       _updater = updater,
        _settings = settingsService.load();
 
   final SettingsService _settingsService;
@@ -100,6 +105,14 @@ class DisplayController extends ChangeNotifier {
 
   /// Null: built-in family and skills only.
   final SenPackService? _pack;
+
+  /// Null: no APK over-the-air updates.
+  final AppUpdater? _updater;
+  static final ValueNotifier<UpdateState> _noUpdate =
+      ValueNotifier<UpdateState>(UpdateState.idle);
+  Timer? _packTimer;
+  Future<PackSyncResult>? _packRun;
+  AppLifecycleListener? _lifecycle;
   final SenPackRegistry _registry = SenPackRegistry();
   static final ValueNotifier<bool> _neverDimmed = ValueNotifier<bool>(false);
   final List<StreamSubscription<Object?>> _subscriptions = [];
@@ -153,6 +166,9 @@ class DisplayController extends ChangeNotifier {
   /// Outcome of the last lock-screen wake/release call.
   ScreenResult? get screenResult => _screenResult;
 
+  /// APK update progress; ready means the badge offers to install.
+  ValueListenable<UpdateState> get update => _updater?.state ?? _noUpdate;
+
   /// True inside the night window while no turn or touch holds brightness.
   ValueListenable<bool> get nightDimmed => _dimmer?.dimmed ?? _neverDimmed;
 
@@ -193,6 +209,28 @@ class DisplayController extends ChangeNotifier {
     _dimmer?.start(_settings.dim);
     _startVoice();
     unawaited(_bootPack());
+    _packTimer = Timer.periodic(
+      SenPackDefaults.refreshEvery,
+      (_) => unawaited(refreshPack()),
+    );
+    _updater?.start(_settings.updateUri, _settings.dim);
+  }
+
+  /// Ambient wake (app resumed, screen back on) refreshes the pack.
+  void attachLifecycle() {
+    _lifecycle ??= AppLifecycleListener(onResume: onAmbientWake);
+  }
+
+  void onAmbientWake() => unawaited(refreshPack());
+
+  /// Background refresh from the configured URL: timer, wake and the
+  /// hub's `pack_updated` push. Overlapping calls share one download.
+  Future<PackSyncResult?> refreshPack() async {
+    final url = _settings.knowledgePackUrl;
+    if (_pack == null || url.isEmpty || _disposed) {
+      return null;
+    }
+    return _packRun ??= syncPack(url).whenComplete(() => _packRun = null);
   }
 
   /// Cached pack first so Sen works offline, then a refresh when a URL
@@ -230,6 +268,23 @@ class DisplayController extends ChangeNotifier {
   }
 
   bool isPackUrl(String url) => SenPackService.parseUrl(url) != null;
+
+  bool isUpdateUrl(String url) => AppUpdater.parseUrl(url) != null;
+
+  /// Settings "Check for updates", against [candidate]'s endpoint when
+  /// given.
+  Future<UpdateCheck> checkUpdate([HubSettings? candidate]) async {
+    final updater = _updater;
+    if (updater == null) {
+      return UpdateCheck.unsupported;
+    }
+    return updater.check(endpoint: candidate?.normalized().updateUri);
+  }
+
+  /// Update badge tap: the system installer for the downloaded APK.
+  Future<InstallResult> installUpdate() async {
+    return await _updater?.install() ?? InstallResult.unsupported;
+  }
 
   void _startVoice() {
     final voice = _voice;
@@ -573,6 +628,7 @@ class DisplayController extends ChangeNotifier {
       _client.connect(normalized.wsUri);
     }
     _dimmer?.configure(normalized.dim);
+    _updater?.configure(normalized.updateUri, normalized.dim);
     await _voice?.configure(normalized.wakeConfig);
     if (modeChanged) {
       await _applyKeepAlive();
@@ -673,6 +729,8 @@ class DisplayController extends ChangeNotifier {
       case ErrorMessage(:final text):
         _lastError = text;
         _forceIdle();
+      case PackUpdatedMessage():
+        unawaited(refreshPack());
     }
   }
 
@@ -799,6 +857,9 @@ class DisplayController extends ChangeNotifier {
       subscription.cancel();
     }
     _watchdog?.cancel();
+    _packTimer?.cancel();
+    _lifecycle?.dispose();
+    _updater?.dispose();
     _installer?.progress.removeListener(notifyListeners);
     unawaited(_keepAlive?.stop());
     unawaited(_releaseScreen());

@@ -11,6 +11,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val screen by lazy { ScreenController(this) }
+    private val installer by lazy { AppInstaller(this) }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -29,6 +30,14 @@ class MainActivity : FlutterActivity() {
                         screen.release()
                         result.success(null)
                     }
+                    else -> result.notImplemented()
+                }
+            }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, UPDATER_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    METHOD_VERSION -> result.success(installer.version())
+                    METHOD_INSTALL -> result.success(installer.install(call.argument<String>(ARG_PATH)))
                     else -> result.notImplemented()
                 }
             }
@@ -84,5 +93,9 @@ class MainActivity : FlutterActivity() {
         private const val METHOD_WAKE = "wakeScreen"
         private const val METHOD_RELEASE = "releaseScreen"
         private const val ARG_LEVEL = "level"
+        private const val UPDATER_CHANNEL = "hermes_display/updater"
+        private const val METHOD_VERSION = "version"
+        private const val METHOD_INSTALL = "install"
+        private const val ARG_PATH = "path"
     }
 }

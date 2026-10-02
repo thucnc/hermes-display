@@ -7,6 +7,7 @@ import '../../core/state/brain_mode.dart';
 import '../../core/state/display_controller.dart';
 import '../../services/audio/wake_model_installer.dart';
 import '../../services/sen_pack_service.dart';
+import '../../services/update/app_updater.dart';
 import '../../services/settings_service.dart';
 import '../../services/wake_word_service.dart';
 import '../strings.dart';
@@ -15,6 +16,8 @@ import '../theme/app_theme.dart';
 enum _ProbeState { idle, testing, success, failure }
 
 enum _SyncState { idle, syncing, updated, unchanged, invalid, failed }
+
+enum _UpdateProbe { idle, checking, done }
 
 Future<void> showSettingsSheet(
   BuildContext context,
@@ -71,6 +74,11 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     text: _initial.knowledgePackUrl,
   );
   final GlobalKey<FormFieldState<String>> _packField = GlobalKey();
+  late final TextEditingController _updateUrl = TextEditingController(
+    text: _initial.updateUrl,
+  );
+  _UpdateProbe _updateProbe = _UpdateProbe.idle;
+  UpdateCheck? _updateCheck;
   _SyncState _sync = _SyncState.idle;
   SenPack? _synced;
   late BrainMode _brain = _initial.brainMode;
@@ -88,6 +96,7 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     _keyword.dispose();
     _geminiKey.dispose();
     _packUrl.dispose();
+    _updateUrl.dispose();
     super.dispose();
   }
 
@@ -106,7 +115,24 @@ class _SettingsSheetState extends State<_SettingsSheet> {
       geminiApiKey: _geminiKey.text,
       brainMode: _brain,
       knowledgePackUrl: _packUrl.text,
+      updateUrl: _updateUrl.text,
     );
+  }
+
+  Future<void> _checkUpdate() async {
+    final draft = _draft();
+    if (draft == null) {
+      return;
+    }
+    setState(() => _updateProbe = _UpdateProbe.checking);
+    final result = await widget.controller.checkUpdate(draft);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _updateProbe = _UpdateProbe.done;
+      _updateCheck = result;
+    });
   }
 
   Future<void> _test() async {
@@ -172,6 +198,14 @@ class _SettingsSheetState extends State<_SettingsSheet> {
     return AppStrings.invalidPackUrl;
   }
 
+  String? _validateUpdateUrl(String? value) {
+    final url = value?.trim() ?? '';
+    if (url.isEmpty || widget.controller.isUpdateUrl(url)) {
+      return null;
+    }
+    return AppStrings.invalidUpdateUrl;
+  }
+
   String? _validateKeyword(String? value) {
     return switch (widget.controller.checkKeyword(value ?? '')) {
       KeywordCheck.empty => AppStrings.invalidKeyword,
@@ -222,6 +256,8 @@ class _SettingsSheetState extends State<_SettingsSheet> {
               ..._brainSection(),
               const SizedBox(height: Spacing.lg),
               ..._packSection(),
+              const SizedBox(height: Spacing.lg),
+              ..._updateSection(),
               const SizedBox(height: Spacing.lg),
               _sliderTile(
                 label: AppStrings.slideInterval,
@@ -406,6 +442,71 @@ class _SettingsSheetState extends State<_SettingsSheet> {
         '${AppStrings.syncMembers}, ${pack.skills.length} '
         '${AppStrings.syncSkills}, ${pack.rituals.length} '
         '${AppStrings.syncRituals}$version';
+  }
+
+  List<Widget> _updateSection() {
+    final checking = _updateProbe == _UpdateProbe.checking;
+    return [
+      TextFormField(
+        controller: _updateUrl,
+        validator: _validateUpdateUrl,
+        keyboardType: TextInputType.url,
+        autocorrect: false,
+        enableSuggestions: false,
+        decoration: const InputDecoration(
+          labelText: AppStrings.updateUrl,
+          helperText: AppStrings.updateUrlHint,
+          border: OutlineInputBorder(),
+        ),
+      ),
+      const SizedBox(height: Spacing.md),
+      Row(
+        children: [
+          OutlinedButton.icon(
+            onPressed: checking ? null : _checkUpdate,
+            icon: checking
+                ? const SizedBox.square(
+                    dimension: _spinnerSize,
+                    child: CircularProgressIndicator(
+                      strokeWidth: _spinnerStroke,
+                    ),
+                  )
+                : const Icon(Icons.system_update_rounded),
+            label: const Text(AppStrings.checkUpdate),
+          ),
+          const SizedBox(width: Spacing.md),
+          Expanded(child: _updateLabel()),
+        ],
+      ),
+    ];
+  }
+
+  Widget _updateLabel() {
+    if (_updateProbe == _UpdateProbe.checking) {
+      return const Text(AppStrings.checkingUpdate);
+    }
+    final release = widget.controller.update.value.release;
+    return switch (_updateCheck) {
+      null => const SizedBox.shrink(),
+      UpdateCheck.upToDate => const Text(
+        AppStrings.updateUpToDate,
+        style: TextStyle(color: AppPalette.online),
+      ),
+      UpdateCheck.ready => Text(
+        release == null
+            ? AppStrings.updateDownloaded
+            : '${AppStrings.updateDownloaded} v${release.versionName}',
+        style: const TextStyle(color: AppPalette.online),
+      ),
+      UpdateCheck.failed => const Text(
+        AppStrings.updateFailed,
+        style: TextStyle(color: AppPalette.offline),
+      ),
+      UpdateCheck.unsupported => const Text(
+        AppStrings.updateUnsupported,
+        style: TextStyle(color: AppPalette.offline),
+      ),
+    };
   }
 
   List<Widget> _dimSection() {

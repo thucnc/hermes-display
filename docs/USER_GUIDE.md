@@ -78,7 +78,14 @@ EMUI rất mạnh tay trong việc tắt app chạy nền. Làm **đủ cả 5 b
 Lần chạy đầu app tự tải model wake word (~6 MB). Xem tại Cài đặt → **Model từ khoá**: "Đã cài" là xong. Nếu "Tải thất bại", chạm **Thử lại**. Trong lúc chưa có model, nút micro vẫn dùng được.
 
 ### 2.6. Cập nhật phiên bản
-Tải APK mới từ GitHub Releases và cài đè lên bản cũ (giữ nguyên cài đặt và trí nhớ). *OTA tự động đang phát triển (KB-003).*
+**OTA tự động:** app kiểm tra `GET /api/app/latest` trên Hub (hoặc **URL cập nhật ứng dụng** trong Cài đặt) khi mở app và mỗi đêm trong khung giờ giảm sáng. Có bản mới (`versionCode` cao hơn) → app tải APK, kiểm tra SHA-256, rồi hiện nhãn **"Đã có bản cập nhật vX — Chạm để cài đặt"** dưới hàng avatar.
+
+- Lần đầu chạm, Android mở trang **"Cài ứng dụng không rõ nguồn"** → bật cho Hermes Display → chạm nhãn lại.
+- Cài xong app tự mở lại nếu Hermes Display là ứng dụng Home mặc định hoặc được cấp **"Hiển thị trên ứng dụng khác"** (Android 10+ chặn mở app từ nền trong các trường hợp khác).
+- Kiểm tra thủ công: Cài đặt → **Kiểm tra cập nhật**.
+- Phát hành bản mới: xem [`docs/RELEASE.md`](RELEASE.md).
+
+Cài tay vẫn được: tải APK từ GitHub Releases và cài đè (giữ nguyên cài đặt và trí nhớ). APK phải ký cùng khoá với bản đang cài.
 
 ---
 
@@ -170,6 +177,8 @@ Sen/
 > 1. Trên Mac mini, chạy: `python3 /Users/mac/hermes-voice-bridge/tools/export_sen_pack.py -o sen-pack.json`
 > 2. Đưa file `sen-pack.json` lên URL công khai (hoặc để `display_hub.py` tự phát).
 > 3. Mở **Cài đặt** trên tablet → dán URL vào mục **"URL Gói Tri Thức"** → bấm **"Đồng bộ ngay"**. Tablet sẽ tải về, lưu vào SQLite cục bộ và chạy offline vĩnh viễn!
+>
+> **Tự làm mới:** sau đó app tự kiểm tra lại mỗi 30 phút và mỗi khi màn hình sáng lại (ETag/304 nên gần như không tốn băng thông). Nếu URL là Hub, sửa file trong `Sen/` là Hub đẩy sự kiện `pack_updated` qua WebSocket và tablet cập nhật ngay trong ~10 giây.
 
 ### 4.1. Tạo kỹ năng mới (`Sen/skills/`)
 1. Obsidian → thư mục `Sen/skills/` → tạo file mới, tên viết thường không dấu, nối bằng `-` (ví dụ `doc-tho.md`).

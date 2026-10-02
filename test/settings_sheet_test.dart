@@ -7,19 +7,25 @@ import 'package:hermes_display/core/state/display_controller.dart';
 import 'package:hermes_display/services/hermes_websocket_client.dart';
 import 'package:hermes_display/services/sen_pack_service.dart';
 import 'package:hermes_display/services/settings_service.dart';
+import 'package:hermes_display/services/update/app_updater.dart';
 import 'package:hermes_display/ui/strings.dart';
 import 'package:hermes_display/ui/widgets/settings_sheet.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/fake_app_platform.dart';
 import 'support/fake_transport.dart';
 import 'support/sen_pack_fixture.dart';
 
 void main() {
   late DisplayController controller;
 
-  Future<void> open(WidgetTester tester, {MockClient? packHost}) async {
+  Future<void> open(
+    WidgetTester tester, {
+    MockClient? packHost,
+    AppUpdater? updater,
+  }) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     controller = DisplayController(
@@ -30,6 +36,7 @@ void main() {
       pack: packHost == null
           ? null
           : SenPackService(prefs: prefs, client: packHost),
+      updater: updater,
     );
     await tester.pumpWidget(
       MaterialApp(
@@ -203,6 +210,53 @@ void main() {
       await tester.tap(find.text(AppStrings.save));
       await tester.pumpAndSettle();
       expect(controller.settings.knowledgePackUrl, url);
+    });
+  });
+
+  group('app update', () {
+    const url = 'https://fam.pages.dev/latest.json';
+    final updateField = find.widgetWithText(
+      TextFormField,
+      AppStrings.updateUrl,
+    );
+
+    testWidgets('check uses the typed URL and reports up to date', (
+      tester,
+    ) async {
+      final requests = <Uri>[];
+      await open(
+        tester,
+        updater: AppUpdater(
+          platform: FakeAppPlatform(),
+          client: MockClient((request) async {
+            requests.add(request.url);
+            return http.Response('', 404);
+          }),
+        ),
+      );
+      await tester.ensureVisible(updateField);
+      await tester.enterText(updateField, url);
+      await tester.ensureVisible(find.text(AppStrings.checkUpdate));
+      await tester.tap(find.text(AppStrings.checkUpdate));
+      await tester.pumpAndSettle();
+      expect(requests.single, Uri.parse(url));
+      expect(find.text(AppStrings.updateUpToDate), findsOneWidget);
+    });
+
+    testWidgets('rejects a bad URL and saves a good one', (tester) async {
+      await open(tester);
+      await tester.ensureVisible(updateField);
+      await tester.enterText(updateField, 'ftp://nope');
+      await tester.ensureVisible(find.text(AppStrings.checkUpdate));
+      await tester.tap(find.text(AppStrings.checkUpdate));
+      await tester.pumpAndSettle();
+      expect(find.text(AppStrings.invalidUpdateUrl), findsOneWidget);
+
+      await tester.enterText(updateField, ' $url ');
+      await tester.ensureVisible(find.text(AppStrings.save));
+      await tester.tap(find.text(AppStrings.save));
+      await tester.pumpAndSettle();
+      expect(controller.settings.updateUrl, url);
     });
   });
 }

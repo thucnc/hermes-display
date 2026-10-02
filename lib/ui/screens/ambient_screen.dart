@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/state/display_controller.dart';
 import '../../core/state/display_state.dart';
+import '../../services/update/app_platform.dart';
+import '../../services/update/app_updater.dart';
 import '../../services/wake_word_service.dart';
 import '../strings.dart';
 import '../theme/app_theme.dart';
@@ -13,6 +15,7 @@ import '../widgets/quick_input_bar.dart';
 import '../widgets/rich_card.dart';
 import '../widgets/settings_sheet.dart';
 import '../widgets/status_badge.dart';
+import '../widgets/update_badge.dart';
 import '../widgets/voice_overlay.dart';
 
 class AmbientScreen extends StatelessWidget {
@@ -87,10 +90,16 @@ class AmbientScreen extends StatelessWidget {
                   ),
                   Align(
                     alignment: Alignment.topCenter,
-                    child: MemberSwitcher(
-                      members: controller.members,
-                      activeId: controller.member.id,
-                      onSelect: controller.selectMember,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        MemberSwitcher(
+                          members: controller.members,
+                          activeId: controller.member.id,
+                          onSelect: controller.selectMember,
+                        ),
+                        _updateBadge(context),
+                      ],
                     ),
                   ),
                   Align(
@@ -124,6 +133,36 @@ class AmbientScreen extends StatelessWidget {
         );
       },
     );
+  }
+
+  Widget _updateBadge(BuildContext context) {
+    return ValueListenableBuilder<UpdateState>(
+      valueListenable: controller.update,
+      builder: (context, update, _) {
+        final release = update.release;
+        if (update.phase != UpdatePhase.ready || release == null) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.only(top: Spacing.sm),
+          child: UpdateBadge(release: release, onTap: () => _install(context)),
+        );
+      },
+    );
+  }
+
+  Future<void> _install(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final message = switch (await controller.installUpdate()) {
+      InstallResult.started => null,
+      InstallResult.needsPermission => AppStrings.updateNeedsPermission,
+      InstallResult.unsupported ||
+      InstallResult.failed => AppStrings.updateInstallFailed,
+    };
+    if (message == null) {
+      return;
+    }
+    messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
   static MicIndicator? _micFor(VoiceStatus? status) => switch (status) {

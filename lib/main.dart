@@ -16,6 +16,8 @@ import 'services/screen/screen_control.dart';
 import 'services/sen_memory_service.dart';
 import 'services/sen_pack_service.dart';
 import 'services/settings_service.dart';
+import 'services/update/app_platform.dart';
+import 'services/update/app_updater.dart';
 import 'services/wake_word_service.dart';
 import 'services/wakelock_service.dart';
 
@@ -44,6 +46,8 @@ Future<void> main() async {
     hubTts: HubTtsService(),
     memory: memory,
     pack: SenPackService(prefs: prefs, memory: memory),
+    updater: AppUpdater(platform: const ChannelAppPlatform()),
   )..start();
+  controller.attachLifecycle();
   runApp(HermesApp(controller: controller));
 }

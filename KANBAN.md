@@ -28,6 +28,18 @@ Last Updated: 2026-10-02
 
 ## Review
 
+- [ ] **KB-014**: Auto Update — APK OTA & tự làm mới Knowledge Pack
+  - Priority: High
+  - Assignee: claude-code (opus-5-5)
+  - Completed: 2026-10-02
+  - Tests: 282/282 (257 cũ + 25 mới), 0 analyze issues, release APK builds (versionCode/versionName từ `--build-number`/`--build-name`). Hub: 29 + publish 3 + exporter 7 + save 11 Python tests.
+  - Pack: refresh mỗi 30 phút, khi app resume (ambient wake) và khi Hub đẩy `pack_updated` (Hub poll hash `Sen/` mỗi 10s); các lần gọi chồng nhau dùng chung một request.
+  - OTA: `AppUpdater` kiểm tra `GET /api/app/latest` (Hub hoặc URL tuỳ chỉnh trong Cài đặt) lúc mở app + mỗi đêm trong khung giảm sáng, tải APK vào cache, kiểm SHA-256, nhãn "Đã có bản cập nhật vX — Chạm để cài đặt", cài qua FileProvider + `ACTION_VIEW`; `UpdateReceiver` (`MY_PACKAGE_REPLACED`) mở lại app.
+  - Ký & phiên bản: `android/key.properties` → signingConfig release; CI dùng tag + `run_number` và secrets keystore; `scripts/release.sh` + `docs/RELEASE.md`.
+  - Hub: `GET /api/app/latest`, `GET /api/app/apk/<file>`, `tools/publish_apk.py`.
+  - Unverified: cài đè thật trên MatePad/emulator; tự mở lại sau update trên Android 10+ cần app là Home mặc định hoặc quyền "Hiển thị trên ứng dụng khác".
+  - Tags: #ota #auto-update #knowledge-pack
+
 - [ ] **KB-013**: Dynamic Sen Knowledge Pack qua URL công khai (Remote Sync)
   - Priority: High
   - Assignee: claude-code (opus-5-5)

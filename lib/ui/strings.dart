@@ -75,6 +75,20 @@ abstract final class AppStrings {
   static const String syncUnchanged = 'Gói tri thức đã mới nhất';
   static const String syncInvalid = 'Gói tri thức không hợp lệ';
   static const String syncFailed = 'Không tải được gói tri thức';
+  static const String updateUrl = 'URL cập nhật ứng dụng';
+  static const String updateUrlHint = 'Để trống: dùng Hub (/api/app/latest)';
+  static const String invalidUpdateUrl = 'Nhập URL http(s) hợp lệ';
+  static const String checkUpdate = 'Kiểm tra cập nhật';
+  static const String checkingUpdate = 'Đang kiểm tra…';
+  static const String updateUpToDate = 'Đang dùng bản mới nhất';
+  static const String updateDownloaded = 'Đã tải bản cập nhật';
+  static const String updateFailed = 'Không kiểm tra được bản cập nhật';
+  static const String updateUnsupported = 'Thiết bị không hỗ trợ cập nhật';
+  static const String updateAvailable = 'Đã có bản cập nhật';
+  static const String updateTapToInstall = 'Chạm để cài đặt';
+  static const String updateNeedsPermission =
+      'Bật "Cho phép cài ứng dụng" cho Hermes Display rồi chạm lại';
+  static const String updateInstallFailed = 'Không mở được trình cài đặt';
 
   static const String playVideo = 'Phát Video';
   static const String videoFallbackTitle = 'Video YouTube';

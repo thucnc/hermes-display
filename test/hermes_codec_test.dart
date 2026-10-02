@@ -51,6 +51,11 @@ void main() {
       expect((msg! as LevelMessage).level, 1);
     });
 
+    test('parses pack_updated, extra fields ignored', () {
+      final msg = HermesCodec.decode('{"type":"pack_updated","hash":"ab"}');
+      expect(msg, isA<PackUpdatedMessage>());
+    });
+
     test('rejects malformed input', () {
       expect(HermesCodec.decode('not json'), isNull);
       expect(HermesCodec.decode('[1,2]'), isNull);

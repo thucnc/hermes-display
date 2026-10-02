@@ -19,6 +19,7 @@ class HubSettings {
     this.brainMode = HubDefaults.brainMode,
     this.activeMemberId = HubDefaults.activeMemberId,
     this.knowledgePackUrl = HubDefaults.knowledgePackUrl,
+    this.updateUrl = HubDefaults.updateUrl,
   });
 
   static const HubSettings defaults = HubSettings(
@@ -33,6 +34,7 @@ class HubSettings {
     brainMode: HubDefaults.brainMode,
     activeMemberId: HubDefaults.activeMemberId,
     knowledgePackUrl: HubDefaults.knowledgePackUrl,
+    updateUrl: HubDefaults.updateUrl,
   );
 
   final String host;
@@ -59,6 +61,9 @@ class HubSettings {
 
   /// Where `sen-pack.json` is downloaded from; empty means none.
   final String knowledgePackUrl;
+
+  /// `latest.json`-style endpoint for APK updates; empty means the hub.
+  final String updateUrl;
 
   /// Gemini only when chosen and a key exists, otherwise the hub.
   BrainMode get activeBrain {
@@ -88,6 +93,21 @@ class HubSettings {
     );
   }
 
+  /// [updateUrl] when it is a valid http(s) URL, else the hub's
+  /// [UpdateDefaults.latestPath].
+  Uri get updateUri {
+    final custom = Uri.tryParse(updateUrl);
+    if (updateUrl.isNotEmpty && custom != null && custom.host.isNotEmpty) {
+      return custom;
+    }
+    return Uri(
+      scheme: UpdateDefaults.scheme,
+      host: host,
+      port: port,
+      path: UpdateDefaults.latestPath,
+    );
+  }
+
   Duration get slideInterval => Duration(seconds: slideIntervalSec);
 
   WakeConfig get wakeConfig {
@@ -110,6 +130,7 @@ class HubSettings {
     BrainMode? brainMode,
     String? activeMemberId,
     String? knowledgePackUrl,
+    String? updateUrl,
   }) {
     return HubSettings(
       host: host ?? this.host,
@@ -123,6 +144,7 @@ class HubSettings {
       brainMode: brainMode ?? this.brainMode,
       activeMemberId: activeMemberId ?? this.activeMemberId,
       knowledgePackUrl: knowledgePackUrl ?? this.knowledgePackUrl,
+      updateUrl: updateUrl ?? this.updateUrl,
     );
   }
 
@@ -151,6 +173,7 @@ class HubSettings {
       brainMode: brainMode,
       activeMemberId: memberId.isEmpty ? HubDefaults.activeMemberId : memberId,
       knowledgePackUrl: knowledgePackUrl.trim(),
+      updateUrl: updateUrl.trim(),
     );
   }
 }
@@ -170,6 +193,7 @@ abstract final class _PrefKey {
   static const String brainMode = 'brain_mode';
   static const String activeMember = 'active_member_id';
   static const String packUrl = 'knowledge_pack_url';
+  static const String updateUrl = 'update_url';
 }
 
 class SettingsService {
@@ -205,6 +229,7 @@ class SettingsService {
           _prefs.getString(_PrefKey.activeMember) ?? fallback.activeMemberId,
       knowledgePackUrl:
           _prefs.getString(_PrefKey.packUrl) ?? fallback.knowledgePackUrl,
+      updateUrl: _prefs.getString(_PrefKey.updateUrl) ?? fallback.updateUrl,
     ).normalized();
   }
 
@@ -234,6 +259,7 @@ class SettingsService {
       _prefs.setString(_PrefKey.brainMode, value.brainMode.name),
       _prefs.setString(_PrefKey.activeMember, value.activeMemberId),
       _prefs.setString(_PrefKey.packUrl, value.knowledgePackUrl),
+      _prefs.setString(_PrefKey.updateUrl, value.updateUrl),
     ]);
   }
 }

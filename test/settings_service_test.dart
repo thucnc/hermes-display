@@ -130,4 +130,17 @@ void main() {
       'https://x.pages.dev/sen-pack.json',
     );
   });
+
+  test('update URI: hub by default, custom URL when set', () async {
+    final hub = HubSettings.defaults.copyWith(host: '10.0.0.2', port: 8901);
+    expect(hub.updateUri.toString(), 'http://10.0.0.2:8901/api/app/latest');
+    final custom = hub.copyWith(updateUrl: 'https://x.dev/latest.json');
+    expect(custom.updateUri.toString(), 'https://x.dev/latest.json');
+
+    SharedPreferences.setMockInitialValues({});
+    final service = await SettingsService.create();
+    expect(service.load().updateUrl, isEmpty);
+    await service.save(custom.copyWith(updateUrl: ' https://x.dev/l.json '));
+    expect(service.load().updateUrl, 'https://x.dev/l.json');
+  });
 }
