@@ -12,7 +12,7 @@ void main() {
     final settings = service.load();
     expect(settings.host, HubDefaults.host);
     expect(settings.alwaysListening, isTrue);
-    expect(settings.wsUri.toString(), 'ws://localhost:8900');
+    expect(settings.wsUri.toString(), 'ws://localhost:8901');
   });
 
   test('round-trips and clamps values', () async {

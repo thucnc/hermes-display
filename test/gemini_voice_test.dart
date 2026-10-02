@@ -85,7 +85,7 @@ void main() {
     await pumpEventQueue();
     expect(controller.state, DisplayState.speaking);
     final (uri, text) = hubTts.asked.single;
-    expect(uri.toString(), 'http://localhost:8900/tts');
+    expect(uri.toString(), 'http://localhost:8901/tts');
     expect(text, 'Trứng chiên: 1. Đập trứng. 2. Chiên vàng.');
 
     hubTts.reply(mp3);

@@ -262,7 +262,7 @@ void main() {
         async.flushMicrotasks();
         expect(result, SaveResult.saved);
         final (uri, note) = sync.saved.single;
-        expect(uri.toString(), 'http://localhost:8900/save');
+        expect(uri.toString(), 'http://localhost:8901/save');
         expect(note.title, 'Cách làm trứng chiên');
         expect(note.category, NoteCategory.recipes);
         controller.dispose();

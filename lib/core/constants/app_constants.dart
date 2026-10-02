@@ -5,7 +5,7 @@ import '../state/brain_mode.dart';
 abstract final class HubDefaults {
   static const String scheme = 'ws';
   static const String host = 'localhost';
-  static const int port = 8900;
+  static const int port = 8901;
   static const int slideIntervalSec = 20;
   static const double wakeSensitivity = 0.8;
   static const String wakeKeyword = 'HEY SEN';
@@ -18,6 +18,9 @@ abstract final class HubDefaults {
 
   /// Empty: no remote knowledge pack, built-in family and skills.
   static const String knowledgePackUrl = '';
+
+  /// Empty: the hub's [UpdateDefaults.latestPath].
+  static const String updateUrl = '';
 }
 
 /// Accepted ranges for user-editable settings.
@@ -130,6 +133,33 @@ abstract final class SyncDefaults {
 abstract final class SenPackDefaults {
   static const Duration timeout = Duration(seconds: 10);
   static const List<String> schemes = ['http', 'https'];
+
+  /// Background re-check; cheap thanks to ETag/304.
+  static const Duration refreshEvery = Duration(minutes: 30);
+}
+
+/// APK over-the-air updates from `GET /api/app/latest`.
+abstract final class UpdateDefaults {
+  static const String scheme = 'http';
+  static const String latestPath = '/api/app/latest';
+  static const List<String> schemes = ['http', 'https'];
+  static const Duration checkTimeout = Duration(seconds: 10);
+
+  /// Abort when the download stalls mid-file.
+  static const Duration idleTimeout = Duration(seconds: 30);
+
+  /// How often the nightly check looks at the clock.
+  static const Duration tick = Duration(minutes: 15);
+
+  /// At most one nightly check per dim window.
+  static const Duration nightlyGap = Duration(hours: 12);
+  static const int maxApkBytes = 300 * 1024 * 1024;
+
+  /// Under the app cache dir; must match `res/xml/update_paths.xml`.
+  static const String dirName = 'updates';
+  static const String filePrefix = 'hermes-display-';
+  static const String fileSuffix = '.apk';
+  static const String partSuffix = '.part';
 }
 
 /// Hub HTTP endpoint that speaks Gemini answers; shares the hub host:port.
