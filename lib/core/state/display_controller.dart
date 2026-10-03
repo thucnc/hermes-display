@@ -1249,18 +1249,19 @@ class DisplayController extends ChangeNotifier {
       case CaptureEnd.maxLength:
         _endCapture();
       case CaptureEnd.noSpeech:
-      case CaptureEnd.stopped:
         if (_listenMode == ListenMode.followUp && _capturePcm.isEmpty) {
           debugPrint('Follow-up silence -> quietly closing session and going idle');
           _closeLive();
           _forceIdle();
           return;
         }
-        if (_capturePcm.length > 0 || _liveTurn == _LiveTurn.streaming) {
+        if (_capturePcm.isNotEmpty || _liveTurn == _LiveTurn.streaming) {
           _endCapture();
         } else {
           cancel();
         }
+      case CaptureEnd.stopped:
+        cancel();
     }
   }
 

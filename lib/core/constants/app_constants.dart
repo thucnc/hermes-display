@@ -8,7 +8,7 @@ abstract final class HubDefaults {
   static const int port = 8901;
   static const int slideIntervalSec = 20;
   static const double wakeSensitivity = 0.8;
-  static const String wakeKeyword = 'ALO SEN';
+  static const String wakeKeyword = 'HELLO SEN';
   static const bool alwaysListening = true;
   static const String geminiApiKey = '';
 
@@ -65,10 +65,10 @@ abstract final class VoiceTiming {
   static const Duration endSilence = Duration(milliseconds: 1200);
 
   /// Give up if the user never starts talking after the cue.
-  static const Duration noSpeech = Duration(seconds: 6);
+  static const Duration noSpeech = Duration(seconds: 8);
 
   /// Give up if user does not follow up after assistant speaks.
-  static const Duration followUpNoSpeech = Duration(seconds: 8);
+  static const Duration followUpNoSpeech = Duration(seconds: 10);
 
   /// Silence before microphone re-opens after TTS to avoid acoustic feedback.
   static const Duration echoTail = Duration(milliseconds: 300);
@@ -79,7 +79,7 @@ abstract final class VoiceTiming {
 
 abstract final class VoiceLevels {
   /// RMS (0..1) above which a frame counts as speech.
-  static const double speechRms = 0.02;
+  static const double speechRms = 0.012;
 
   /// Scales RMS into the 0..1 range the waveform expects.
   static const double meterGain = 8;
