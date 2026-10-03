@@ -1,7 +1,7 @@
 {
-  "versionCode": 21,
-  "versionName": "0.8.1",
-  "url": "https://github.com/thucnc/hermes-display/releases/download/v0.8.1/app-release.apk",
-  "sha256": "f653617d1be8087768723489624e0bbc96f2979ecd5a83c7f867ab3b11e03ccd",
-  "notes": "v0.8.1 - Wake Word HELLO SEN & c\u1ea3i thi\u1ec7n \u0111\u1ed9 nh\u1ea1y n\u00fat Talk"
+  "versionCode": 22,
+  "versionName": "0.8.2",
+  "url": "https://github.com/thucnc/hermes-display/releases/download/v0.8.2/app-release.apk",
+  "sha256": "9d3b1ad0304e7e3d65108775f2717745b5f5b49e0032b8f95de026f25c96bbf6",
+  "notes": "v0.8.2 - S\u1eeda l\u1ed7i x\u00e1c th\u1ef1c k\u00edch th\u01b0\u1edbc Model KWS"
 }
